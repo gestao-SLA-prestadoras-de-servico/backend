@@ -9,6 +9,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class HelloWorldController {
     @GetMapping 
     public String HelloWorld() {
-        return "Hello World";
+        return "Hello World - Ambiente: " + System.getenv("ENVIRONMENT");
     } 
 }

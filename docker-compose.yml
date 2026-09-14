@@ -7,8 +7,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file:
-      - .env
 
   postgres:
     image: postgres:17
