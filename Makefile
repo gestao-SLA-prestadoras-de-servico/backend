@@ -29,6 +29,9 @@ build-prod:
 build-dev:
 	docker compose --env-file .envs/.env.dev -f docker-compose.yml -f docker-compose.dev.yml up --build
 
+build-test:
+	docker compose --env-file .envs/.env.test -f docker-compose.yml -f docker-compose.test.yml up --build
+
 # ==================
 # TESTES
 # ==================
@@ -36,3 +39,7 @@ build-dev:
 #unit-tests
 unit-test:
 	./mvnw -Dtest="com/gestaosla/backend/unit/*" test
+
+#integration-tests
+integration-test:
+	./mvnw -Dtest="com/gestaosla/backend/integration/*" test
