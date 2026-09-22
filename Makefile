@@ -25,3 +25,14 @@ run-prod-down:
 # build
 build-prod:
 	docker compose --env-file .envs/.env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build
+
+build-dev:
+	docker compose --env-file .envs/.env.dev -f docker-compose.yml -f docker-compose.dev.yml up --build
+
+# ==================
+# TESTES
+# ==================
+
+#unit-tests
+unit-test:
+	./mvnw -Dtest="com/gestaosla/backend/unit/*" test
