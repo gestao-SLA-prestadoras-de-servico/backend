@@ -1,0 +1,15 @@
+services:
+  backend-app:
+    build:
+      target: development
+    volumes:
+      - ..:/app
+    env_file:
+      - ../.envs/.env.dev
+
+  postgres:
+    volumes:
+      - pgdata-dev:/var/lib/postgresql/data
+
+volumes:
+  pgdata-dev:

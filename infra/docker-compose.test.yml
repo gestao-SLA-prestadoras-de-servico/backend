@@ -1,0 +1,10 @@
+services:
+  backend-app:
+    build:
+      target: test
+    env_file:
+      - ../.envs/.env.test
+
+  postgres:
+    tmpfs:
+      - /var/lib/postgresql/data
