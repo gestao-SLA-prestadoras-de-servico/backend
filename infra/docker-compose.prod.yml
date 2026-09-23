@@ -3,10 +3,10 @@ services:
     build:
       target: production
     env_file:
-      - .envs/.env.prod
+      - ../.envs/.env.prod
 
   postgres:
-    volumes: 
+    volumes:
       - pgdata-prod:/var/lib/postgresql/data
 
 volumes:

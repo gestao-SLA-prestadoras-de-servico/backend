@@ -3,7 +3,7 @@ services:
     build:
       target: test
     env_file:
-      - .envs/.env.test
+      - ../.envs/.env.test
 
   postgres:
     tmpfs:

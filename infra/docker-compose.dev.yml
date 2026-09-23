@@ -3,12 +3,12 @@ services:
     build:
       target: development
     volumes:
-      - .:/app
+      - ..:/app
     env_file:
-      - .envs/.env.dev
+      - ../.envs/.env.dev
 
   postgres:
-    volumes: 
+    volumes:
       - pgdata-dev:/var/lib/postgresql/data
 
 volumes:
