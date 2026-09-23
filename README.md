@@ -1,31 +1,31 @@
-# NOME DO PROJETO
+# FlowSLA - Backend
 
-Bem-vindo ao repositório de backend do **[NOME DO PROJETO]** - [explicação resumida do projeto]
+Bem-vindo ao repositório de backend do **FlowSLA** - um sistema para automatizar o controle de prazos, evidências e histórico de atendimento relacionados a SLAs (Service Level Agreements), voltado especialmente para empresas prestadoras de serviços técnicos de pequeno e médio porte.
 
-> Para uma visão geral do projeto, acesse o [inserir link do repositório de hub].
+## Qual é o propósito desse repositório?
 
-## Qual o propósito desse repositório?
-
-Este repositório é responsável pelo backend do **[NOME DO PROJETO]**, incluindo as documentações relacionadas especificamente ao backend como mapeamento de endpoints, módulos, entre outros.
+Este repositório é responsável pelo backend do **FlowSLA**, incluindo as documentações relacionadas especificamente ao backend como mapeamento de endpoints, módulos, entre outros.
 
 ## Stack
 
 <!-- ALTERAR PARA A STACK DO PROJETO -->
 
-| Ferramenta                                                               | Versão             |
-| ------------------------------------------------------------------------ | ------------------ |
-| [NestJS](https://nestjs.com/)                                            | ^11.0.1            |
-| [TypeScript](https://www.typescriptlang.org/)                            | ^5.7.3             |
-| [PostgreSQL](https://www.postgresql.org/)                                | 17 (imagem Docker) |
-| [TypeORM](https://typeorm.io/)                                           | ^1.0.0             |
-| [Docker](https://docs.docker.com/)                                       | -                  |
-| [Jest](https://jestjs.io/pt-BR/)                                         | ^30.0.0            |
-| [Joi](https://joi.dev/)                                                  | ^18.2.3            |
-| Swagger (@nestjs/swagger) (https://docs.nestjs.com/openapi/introduction) | ^11.4.6            |
-| Resend (https://resend.com/)                                             | ^6.18.1            |
-| bcrypt (https://www.npmjs.com/package/bcrypt)                            | ^6.0.0             |
+| Ferramenta                                                                                                 | Versão                              |
+| ---------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| [Java](https://docs.oracle.com/en/java/)                                                                   | 21                                  |
+| [Spring Boot](https://spring.io/)                                                                          | 4.1.1                               |
+| [Spring Data JPA](https://spring.io/projects/spring-data-jpa)                                              | 4.1.1                               |
+| [Spring Security](https://spring.io/projects/spring-security)                                              | 7.x                                 |
+| [Spring Validation](https://docs.spring.io/spring-framework/reference/core/validation/beanvalidation.html) | 7.x                                 |
+| [Spring Web MVC](https://docs.spring.io/spring-framework/reference/web/webmvc.html)                        | 7.x                                 |
+| [PostgreSQL](https://www.postgresql.org/docs/17/)                                                          | 17 (imagem Docker)                  |
+| [Maven](https://maven.apache.org/)                                                                         | -                                   |
+| [Testcontainers](https://java.testcontainers.org/)                                                         | ^2.0.5 (PostgreSQL + JUnit Jupiter) |
+| [Lombok](https://projectlombok.org/)                                                                       | -                                   |
+| [Docker/DockerCompose](https://docs.docker.com/)                                                           | -                                   |
+| [DockerCompose](https://docs.docker.com/compose/)                                                          | -                                   |
 
-## Como rodar o projeto:
+## Como executar o projeto:
 
 > [!IMPORTANT]
 >
@@ -66,7 +66,7 @@ make run-test
 
 ### Ambiente de Produção
 
-#### 1. Copie as variáveis de ambiente de tprodução:
+#### 1. Copie as variáveis de ambiente de produção:
 
 ```bash
 cp .envs/.env.prod.example .envs/.env.prod
@@ -78,15 +78,64 @@ cp .envs/.env.prod.example .envs/.env.prod
 make run-prod
 ```
 
-#### ATENÇÃO:
+## Como executar os testes:
 
-Caso seja necessário rebuildar o ambiente de produção, utilize o comando:
+> [!IMPORTANT]
+>
+> Requisitos:
+>
+> - Docker (para testes de integração)
+
+> Obs.: O Docker é necessário, pois os testes de integração utilizam Testcontainers.
+
+### Testes unitários:
+
+> Não requerem docker
 
 ```bash
-make build-prod
+make unit-test
 ```
 
-<!-- ADICIONAR ESTRUTURA DE PASTAS -->
+### Testes de integração:
+
+```bash
+make integration-test
+```
+
+## Estrutura de pastas
+
+```bash
+.
+├── Dockerfile
+├── .dockerignore
+├── .envs # Variáveis de ambiente do projeto
+│   ├── .env.dev.example
+│   ├── .env.prod.example
+│   └── .env.test.example
+├── .gitattributes
+├── .github # Configurações do GitHub
+│   └── workflows # GitHub Actions (CI/CD)
+│       └── ci.yml
+├── .gitignore
+├── infra # Arquivos relacionados à infraestrutura
+│   ├── docker-compose.dev.yml
+│   ├── docker-compose.prod.yml
+│   ├── docker-compose.test.yml
+│   └── docker-compose.yml
+├── LICENSE
+├── Makefile # Atalhos para comandos e scripts
+├── .mvn
+│   └── wrapper
+├── mvnw
+├── mvnw.cmd
+├── pom.xml # Dependências e configuração do Maven
+├── README.md
+├── src # Código-fonte e testes
+│   ├── main
+│   └── test
+└── .vscode # Configuração do workspace no VSCode
+    └── settings.json
+```
 
 <!-- ADICIONAR MAPEAMENTO DE ENDPOINTS -->
 
@@ -100,9 +149,9 @@ make build-prod
 
 ## Autores
 
-|                                                                                                                         |                                                                                 |                                                                             |
-| :---------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------: | :-------------------------------------------------------------------------: |
-|                <img src="https://github.com/genzo-dev.png" alt="Gabriel Enzo (genzo-dev)" width="160"/>                 | <img src="https://github.com/LuisF3L1P3dev.png" alt="Luis Felipe" width="160"/> |    <img src="https://github.com/rangelro.png" alt="Rangel" width="160"/>    |
-|                                              **Gabriel Enzo (genzo-dev)**                                               |                                 **Luis Felipe**                                 |                                 **Rangel**                                  |
-|                                           <sub>Fullstack web developer</sub>                                            |                       <sub>Fullstack web developer</sub>                        |                     <sub>Fullstack web developer</sub>                      |
-| <a href="https://www.linkedin.com/in/genzo-dev/">💼 LinkedIn</a> · <a href="https://github.com/genzo-dev">🐙 GitHub</a> |   <a href="URL_LINKEDIN">💼 LinkedIn</a> · <a href="URL_GITHUB">🐙 GitHub</a>   | <a href="URL_LINKEDIN">💼 LinkedIn</a> · <a href="URL_GITHUB">🐙 GitHub</a> |
+|                                                                                                                         |                                                                                                                                |                                                                                                                                     |
+| :---------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------: |
+|                <img src="https://github.com/genzo-dev.png" alt="Gabriel Enzo (genzo-dev)" width="160"/>                 |                        <img src="https://github.com/LuisF3L1P3dev.png" alt="Luis Felipe" width="160"/>                         |                                <img src="https://github.com/rangelro.png" alt="Rangel" width="160"/>                                |
+|                                              **Gabriel Enzo (genzo-dev)**                                               |                                                        **Luis Felipe**                                                         |                                                             **Rangel**                                                              |
+|                                           <sub>Fullstack web developer</sub>                                            |                                               <sub>Fullstack web developer</sub>                                               |                                                 <sub>Fullstack web developer</sub>                                                  |
+| <a href="https://www.linkedin.com/in/genzo-dev/">💼 LinkedIn</a> · <a href="https://github.com/genzo-dev">🐙 GitHub</a> | <a href="https://www.linkedin.com/in/luisfelipe15/">💼 LinkedIn</a> · <a href="https://github.com/LuisF3L1P3dev">🐙 GitHub</a> | <a href="https://www.linkedin.com/in/rangel-rocha-779139228/">💼 LinkedIn</a> · <a href="https://github.com/rangelro">🐙 GitHub</a> |
