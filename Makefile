@@ -38,8 +38,8 @@ build-test:
 
 #unit-tests
 unit-test:
-	./mvnw -Dtest="com/gestaosla/backend/unit/*" test
+	./mvnw -Dtest="com/gestaosla/backend/unit/**" test
 
 #integration-tests
 integration-test:
-	./mvnw -Dtest="com/gestaosla/backend/integration/*" test
+	./mvnw -Dtest="com/gestaosla/backend/integration/**" test
