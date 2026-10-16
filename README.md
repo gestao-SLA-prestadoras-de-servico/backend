@@ -8,8 +8,6 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 
 ## Stack
 
-<!-- ALTERAR PARA A STACK DO PROJETO -->
-
 | Ferramenta                                                                                                 | Versão                              |
 | ---------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | [Java](https://docs.oracle.com/en/java/)                                                                   | 21                                  |
@@ -18,12 +16,41 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 | [Spring Security](https://spring.io/projects/spring-security)                                              | 7.x                                 |
 | [Spring Validation](https://docs.spring.io/spring-framework/reference/core/validation/beanvalidation.html) | 7.x                                 |
 | [Spring Web MVC](https://docs.spring.io/spring-framework/reference/web/webmvc.html)                        | 7.x                                 |
+| [Spring Security OAuth2 Resource Server](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html) | 7.x                    |
+| [Spring AMQP (RabbitMQ)](https://spring.io/projects/spring-amqp)                                           | 4.x                                 |
+| [Spring Boot Actuator](https://docs.spring.io/spring-boot/reference/actuator/index.html)                   | 4.1.1                               |
+| [Micrometer Prometheus](https://docs.micrometer.io/micrometer/reference/implementations/prometheus.html)   | 1.17.1                              |
+| [Flyway](https://documentation.red-gate.com/flyway)                                                        | 12.4.0 (+ `flyway-database-postgresql`) |
+| [Spring Modulith](https://spring.io/projects/spring-modulith)                                              | 2.1.1 (só verificação de módulos, nos testes) |
+| [Spring Framework Resilience](https://docs.spring.io/spring-framework/reference/core/resilience.html)      | 7.x (`@Retryable` / `@ConcurrencyLimit`; escolhido no lugar do Resilience4j) |
 | [PostgreSQL](https://www.postgresql.org/docs/17/)                                                          | 17 (imagem Docker)                  |
 | [Maven](https://maven.apache.org/)                                                                         | -                                   |
 | [Testcontainers](https://java.testcontainers.org/)                                                         | ^2.0.5 (PostgreSQL + JUnit Jupiter) |
 | [Lombok](https://projectlombok.org/)                                                                       | -                                   |
 | [Docker/DockerCompose](https://docs.docker.com/)                                                           | -                                   |
 | [DockerCompose](https://docs.docker.com/compose/)                                                          | -                                   |
+
+## Módulos
+
+O backend é um monólito modular. Cada módulo fica em `com.gestaosla.backend.<modulo>`, com dois subpacotes:
+
+- `api`: API pública do módulo. É o único pacote que outros módulos podem importar.
+- `internal`: implementação privada do módulo.
+
+| Módulo       | Responsabilidade                                       |
+| ------------ | ------------------------------------------------------ |
+| `shared`     | Tipos e utilitários comuns a todos os módulos          |
+| `identidade` | Autenticação, usuários e permissões                    |
+| `cadastro`   | Cadastros base (clientes, contratos, prestadores)      |
+| `chamado`    | Abertura e ciclo de vida dos chamados                  |
+| `sla`        | Regras de SLA, cálculo e controle de prazos            |
+| `evidencia`  | Evidências anexadas aos atendimentos                   |
+| `outbox`     | Outbox própria para publicação confiável de eventos    |
+| `auditoria`  | Histórico e trilha de auditoria                        |
+| `relatorio`  | Relatórios e indicadores                               |
+| `retencao`   | Políticas de retenção e expurgo de dados               |
+
+O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModules.verify()`) e reprova o build se um módulo importar o pacote `internal` de outro ou se houver dependência circular entre módulos.
 
 ## Como executar o projeto:
 
@@ -106,6 +133,9 @@ make integration-test
 
 ```bash
 .
+├── docs # Documentação das tasks do backend
+│   ├── tasks # O que cada task resolveu
+│   └── testes # Testes executados em cada task
 ├── Dockerfile
 ├── .dockerignore
 ├── .envs # Variáveis de ambiente do projeto

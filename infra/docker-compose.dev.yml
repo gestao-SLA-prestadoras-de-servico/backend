@@ -3,7 +3,7 @@ services:
     build:
       target: development
     volumes:
-      - ..:/app
+      - ..:/app:z
     env_file:
       - ../.envs/.env.dev
 
