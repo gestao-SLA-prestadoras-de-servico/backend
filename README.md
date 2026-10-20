@@ -59,7 +59,7 @@ O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModul
 > Requisitos:
 >
 > - Docker
-> - Docker Compose
+> - Docker Compose 2.30 ou mais recente (usa `post_start`)
 
 O projeto está dividido em três ambientes (desenvolvimento, testes e produção), abaixo estão as informações de como rodar cada um deles:
 
@@ -76,6 +76,22 @@ cp .envs/.env.dev.example .envs/.env.dev
 ```bash
 make run-dev
 ```
+
+O ambiente sobe o backend e as dependências dele. O backend só inicia depois que todas estão saudáveis:
+
+| Serviço    | Acesso em dev                                  | Observação                                                                 |
+| ---------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
+| Backend    | http://localhost:8080                          | `/actuator/health`                                                         |
+| PostgreSQL | só rede interna (`postgres:5432`)              | bancos `app_principal`, `notificacoes` e `keycloak`, um usuário por banco (`infra/postgres/init.sql`) |
+| RabbitMQ   | http://localhost:15672 (management)            | topologia de `infra/rabbitmq/definitions.json`                             |
+| MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
+| Keycloak   | http://localhost:8081                          | admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`                   |
+| Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
+
+Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam na rede `flowsla-<ENVIRONMENT>`, que o ms-notificacoes usa como rede externa para acessar o PostgreSQL e o RabbitMQ compartilhados.
+
+> [!WARNING]
+> O `init.sql` só roda com o volume do PostgreSQL vazio. Se o ambiente já foi criado antes, rode `make run-dev-down` (apaga os dados de dev) antes de subir de novo.
 
 ### Ambiente de Testes
 
@@ -148,6 +164,11 @@ make integration-test
 │       └── ci.yml
 ├── .gitignore
 ├── infra # Arquivos relacionados à infraestrutura
+│   ├── postgres
+│   │   └── init.sql # Bancos e usuários do PostgreSQL compartilhado
+│   ├── rabbitmq
+│   │   ├── definitions.json # Topologia do RabbitMQ
+│   │   └── enabled_plugins
 │   ├── docker-compose.dev.yml
 │   ├── docker-compose.prod.yml
 │   ├── docker-compose.test.yml

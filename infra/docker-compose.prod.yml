@@ -9,5 +9,15 @@ services:
     volumes:
       - pgdata-prod:/var/lib/postgresql/data
 
+  rabbitmq:
+    volumes:
+      - rabbitmq-prod:/var/lib/rabbitmq
+
+  minio:
+    volumes:
+      - minio-prod:/data
+
 volumes:
   pgdata-prod:
+  rabbitmq-prod:
+  minio-prod:
