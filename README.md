@@ -26,6 +26,7 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 | [PostgreSQL](https://www.postgresql.org/docs/17/)                                                          | 17 (imagem Docker)                  |
 | [Maven](https://maven.apache.org/)                                                                         | -                                   |
 | [Testcontainers](https://java.testcontainers.org/)                                                         | ^2.0.5 (PostgreSQL + JUnit Jupiter) |
+| [ArchUnit](https://www.archunit.org/)                                                                      | 1.4.1 (regras de arquitetura, nos testes) |
 | [Lombok](https://projectlombok.org/)                                                                       | -                                   |
 | [Docker/DockerCompose](https://docs.docker.com/)                                                           | -                                   |
 | [DockerCompose](https://docs.docker.com/compose/)                                                          | -                                   |
@@ -51,6 +52,14 @@ O backend é um monólito modular. Cada módulo fica em `com.gestaosla.backend.<
 | `retencao`   | Políticas de retenção e expurgo de dados               |
 
 O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModules.verify()`) e reprova o build se um módulo importar o pacote `internal` de outro ou se houver dependência circular entre módulos.
+
+## Data e hora
+
+O sistema tem fuso único (`FUSO_HORARIO`, hoje `America/Fortaleza`), usado pela JVM, pela sessão JDBC, pelo Hibernate e pelo Postgres. Quem precisa da hora injeta `java.time.Clock` (bean do `shared`); `Instant.now()`, `LocalDateTime.now()` e similares sem o Clock reprovam o `RelogioArquiteturaTest`. Nos testes, `RelogioMutavel` substitui o Clock e avança o tempo sem esperar.
+
+## Erros da API
+
+Todo erro sai como Problem Details (RFC 9457) com o campo `codigo`, tratado no `shared.internal.GlobalExceptionHandler`. Regra de negócio: `throw new RegraNegocioException(CodigoErro.X, "mensagem")` (422); recurso inexistente ou de outro cliente: `throw new RecursoNaoEncontradoException()` (404). Status, códigos e catálogo em `docs/erros-api.md`.
 
 ## Como executar o projeto:
 
@@ -145,11 +154,22 @@ make unit-test
 make integration-test
 ```
 
+## Documentação por task
+
+Toda task entregue gera dois arquivos em `docs/`, com o mesmo nome (`<modulo>-<nn>-<descricao>.md`, ex.: `plataforma-03-padrao-schema-banco.md`):
+
+- `docs/tasks/`: contexto, tabela critério de aceite × solução, passos técnicos realizados, decisões e cuidados ao atualizar um ambiente existente.
+- `docs/testes/`: data e branch, tabela com o que foi testado, como, resultado esperado, resultado obtido e status, e o que ficou sem verificar.
+
+Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/convencoes-banco.md`).
+
 ## Estrutura de pastas
 
 ```bash
 .
 ├── docs # Documentação das tasks do backend
+│   ├── convencoes-banco.md # Padrão de schema e migrações
+│   ├── erros-api.md # Formato dos erros e catálogo de códigos
 │   ├── tasks # O que cada task resolveu
 │   └── testes # Testes executados em cada task
 ├── Dockerfile
