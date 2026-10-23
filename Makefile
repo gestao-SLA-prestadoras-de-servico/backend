@@ -2,6 +2,12 @@
 run-dev:
 	docker compose --env-file .envs/.env.dev -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up
 
+ci-run-dev:
+	docker compose --env-file .envs/.env.dev -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d --wait
+
+dev-logs:
+	docker compose --env-file .envs/.env.dev -f infra/docker-compose.yml -f infra/docker-compose.dev.yml logs
+
 run-dev-down:
 	docker compose --env-file .envs/.env.dev -f infra/docker-compose.yml -f infra/docker-compose.dev.yml down -v
 
@@ -9,6 +15,12 @@ run-dev-down:
 # test
 run-test:
 	docker compose --env-file .envs/.env.test -f infra/docker-compose.yml -f infra/docker-compose.test.yml up
+
+ci-run-test:
+	docker compose --env-file .envs/.env.test -f infra/docker-compose.yml -f infra/docker-compose.test.yml up -d --wait
+
+test-logs:
+	docker compose --env-file .envs/.env.test -f infra/docker-compose.yml -f infra/docker-compose.test.yml logs
 
 run-test-down:
 	docker compose --env-file .envs/.env.test -f infra/docker-compose.yml -f infra/docker-compose.test.yml down
@@ -43,3 +55,4 @@ unit-test:
 #integration-tests
 integration-test:
 	./mvnw -Dtest="com/gestaosla/backend/integration/**" test
+
