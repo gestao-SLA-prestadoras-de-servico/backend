@@ -11,5 +11,28 @@ services:
     volumes:
       - pgdata-dev:/var/lib/postgresql/data
 
+  rabbitmq:
+    ports:
+      - "15672:15672" # management
+    volumes:
+      - rabbitmq-dev:/var/lib/rabbitmq
+
+  minio:
+    ports:
+      - "9001:9001" # console (a porta S3 9000 não é publicada)
+    volumes:
+      - minio-dev:/data
+
+  keycloak:
+    command: start-dev
+    ports:
+      - "8081:8080"
+
+  mailpit:
+    ports:
+      - "8025:8025" # interface web
+
 volumes:
   pgdata-dev:
+  rabbitmq-dev:
+  minio-dev:

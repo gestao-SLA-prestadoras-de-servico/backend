@@ -34,8 +34,19 @@ RUN ./mvnw clean package -DskipTests
 
 FROM eclipse-temurin:21-jre AS production
 
+# A imagem não traz curl nem wget; o curl é usado pelo HEALTHCHECK.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --no-create-home app
+
 WORKDIR /app
 
-COPY --from=build /app/target/*.jar app.jar
+COPY --from=build --chown=app:app /app/target/*.jar app.jar
+
+USER app
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fs http://localhost:8080/actuator/health || exit 1
 
 CMD ["java", "-jar", "app.jar"]

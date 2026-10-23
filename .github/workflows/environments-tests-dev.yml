@@ -1,0 +1,52 @@
+name: Environments Tests To Develop Branch
+
+on:
+  pull_request:
+    branches: [develop]
+
+jobs:
+  dev-environment-test:
+    name: Dev Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Prepare development environment
+        run: cp .envs/.env.dev.example .envs/.env.dev
+
+      - name: Start development environment
+        run: make ci-run-dev
+
+      - name: Show logs on failure
+        if: failure()
+        run: make dev-logs
+
+      - name: Stop development environment
+        if: always()
+        run: make run-dev-down
+
+  test-environment-test:
+    name: Test Environment
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Prepare development environment
+        run: cp .envs/.env.test.example .envs/.env.test
+
+      - name: Start development environment
+        run: make ci-run-test
+
+      - name: Show logs on failure
+        if: failure()
+        run: make test-logs
+
+      - name: Stop development environment
+        if: always()
+        run: make run-test-down
