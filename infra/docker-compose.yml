@@ -34,20 +34,32 @@ services:
       interval: 5s
       retries: 5
 
+  rabbitmq-init:
+    image: python:3.13-alpine
+    working_dir: /app
+    environment:
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+    volumes:
+      - ./rabbitmq:/rabbitmq
+      - ./rabbitmq/generate_definitions.py:/app/generate_definitions.py:ro,z
+    command: ["python", "/app/generate_definitions.py"]
+
   rabbitmq:
     image: rabbitmq:4.1-management-alpine
+    depends_on:
+      rabbitmq-init:
+        condition: service_completed_successfully
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     volumes:
       - ./rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro,z
       - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro,z
-    # Importa a topologia depois do boot: com load_definitions o RabbitMQ não cria o RABBITMQ_DEFAULT_USER.
-    post_start:
-      - user: rabbitmq # como root, o CLI criaria o .erlang.cookie com dono errado
-        command: sh -c 'until rabbitmq-diagnostics -q ping; do sleep 2; done; rabbitmqctl import_definitions /etc/rabbitmq/definitions.json && touch /tmp/definitions-importadas'
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro,z
+      # - rabbitmq/var/lib/rabbitmq
     healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping && test -f /tmp/definitions-importadas"]
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
       interval: 5s
       retries: 12
 
@@ -80,7 +92,11 @@ services:
         condition: service_healthy
     # A imagem não tem curl; usa /dev/tcp do bash na porta de gerenciamento.
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      test:
+        [
+          "CMD-SHELL",
+          "exec 3<>/dev/tcp/localhost/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3",
+        ]
       interval: 10s
       retries: 18
 

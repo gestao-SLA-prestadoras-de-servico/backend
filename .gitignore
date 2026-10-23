@@ -36,3 +36,7 @@ build/
 .envs/*
 .env
 !.envs/.env.*.example
+
+# infra
+
+/infra/rabbitmq/definitions.json
