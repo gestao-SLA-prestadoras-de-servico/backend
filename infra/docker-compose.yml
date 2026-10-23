@@ -21,6 +21,8 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      TZ: ${FUSO_HORARIO} # o initdb grava como timezone padrão do servidor (só em volume novo)
+      PGTZ: ${FUSO_HORARIO} # psql dentro do container
       DATABASE_USER: ${DATABASE_USER}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
       NOTIFICACOES_DB_USER: ${NOTIFICACOES_DB_USER}
