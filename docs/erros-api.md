@@ -20,7 +20,7 @@ Erro de validação traz também `erros`: `[{ "campo": "titulo", "mensagem": "mu
 | Situação | Status | `codigo` | Como gerar |
 | --- | --- | --- | --- |
 | Campo inválido (`@Valid`), JSON malformado, parâmetro com tipo errado | 400 | `VALIDACAO` | Automático |
-| Sem token / token inválido | 401 | `NAO_AUTENTICADO` | Automático (filtro de segurança) |
+| Sem token; token inválido, expirado, de outro issuer ou sem `aud` `app-principal`; usuário inativo ou sem registro local | 401 | `NAO_AUTENTICADO` | Automático (filtro de segurança) |
 | Autenticado, mas sem o papel exigido | 403 | `ACESSO_NEGADO` | Automático (filtro ou `@PreAuthorize`) |
 | Recurso inexistente **ou de outro cliente** | 404 | `RECURSO_NAO_ENCONTRADO` | `throw new RecursoNaoEncontradoException()` |
 | Bloqueio otimista: registro alterado por outra operação (RN-117) | 409 | `CONFLITO_VERSAO` | Automático (`ObjectOptimisticLockingFailureException`) |

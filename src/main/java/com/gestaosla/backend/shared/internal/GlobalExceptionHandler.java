@@ -49,7 +49,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "O registro foi alterado por outra operação. Recarregue os dados e tente novamente.");
     }
 
-    // Chegam aqui também os erros dos filtros de segurança (SegurancaErrosConfig).
+    // Chegam aqui também os erros dos filtros de segurança (identidade.internal.SegurancaConfig).
     @ExceptionHandler
     ResponseEntity<ProblemDetail> naoAutenticado(AuthenticationException ex) {
         return problema(HttpStatus.UNAUTHORIZED, CodigoErro.NAO_AUTENTICADO, "Autenticação necessária.");

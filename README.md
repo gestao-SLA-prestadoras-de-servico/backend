@@ -53,6 +53,18 @@ O backend é um monólito modular. Cada módulo fica em `com.gestaosla.backend.<
 
 O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModules.verify()`) e reprova o build se um módulo importar o pacote `internal` de outro ou se houver dependência circular entre módulos.
 
+## Autenticação e autorização
+
+Toda rota, exceto `/actuator/health`, exige `Authorization: Bearer <token do Keycloak>`. O token é validado quanto a assinatura, `iss` e `aud` (`app-principal`). Usuário inativo ou sem registro local recebe 401. O papel vem **sempre** do token (`realm_access.roles` → `ROLE_CLIENTE`/`ROLE_TECNICO`/`ROLE_GESTOR`), nunca da tabela `usuario` (RN-130). Config em `identidade.internal.SegurancaConfig` e `UsuarioCorrenteConverter`.
+
+```java
+@GetMapping("/relatorios")
+@PreAuthorize("hasRole('GESTOR')")                         // papel errado → 403
+List<Relatorio> listar(@AuthenticationPrincipal UsuarioCorrente usuario) { // sub, papel e empresa do cliente
+```
+
+CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que passam pelo decoder real (ver `AutorizacaoTest`).
+
 ## Data e hora
 
 O sistema tem fuso único (`FUSO_HORARIO`, hoje `America/Fortaleza`), usado pela JVM, pela sessão JDBC, pelo Hibernate e pelo Postgres. Quem precisa da hora injeta `java.time.Clock` (bean do `shared`); `Instant.now()`, `LocalDateTime.now()` e similares sem o Clock reprovam o `RelogioArquiteturaTest`. Nos testes, `RelogioMutavel` substitui o Clock e avança o tempo sem esperar.

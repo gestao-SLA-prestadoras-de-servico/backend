@@ -2,6 +2,7 @@ package com.gestaosla.backend.identidade.internal;
 
 import java.util.UUID;
 
+import com.gestaosla.backend.identidade.api.Papel;
 import com.gestaosla.backend.shared.api.EntidadeBase;
 
 import jakarta.persistence.Entity;
@@ -22,7 +23,7 @@ class Usuario extends EntidadeBase {
     private String nome;
 
     @Enumerated(EnumType.STRING)
-    private Perfil perfil;
+    private Papel perfil;
 
     private boolean ativo;
 }

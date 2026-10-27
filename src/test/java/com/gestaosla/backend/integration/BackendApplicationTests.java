@@ -117,7 +117,7 @@ class BackendApplicationTests {
         assertThat(rotinaPrazoVencido.getAsBoolean()).isTrue();
     }
 
-    // O 401 nasce no filtro de segurança, fora do MVC; o SegurancaErrosConfig o leva ao GlobalExceptionHandler.
+    // O 401 nasce no filtro de segurança, fora do MVC; o SegurancaConfig o leva ao GlobalExceptionHandler.
     @Test
     void shouldReturnProblemDetailsWhenNotAuthenticated() throws Exception {
         mvc.perform(get("/qualquer-rota"))
