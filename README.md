@@ -94,10 +94,24 @@ O ambiente sobe o backend e as dependências dele. O backend só inicia depois q
 | PostgreSQL | só rede interna (`postgres:5432`)              | bancos `app_principal`, `notificacoes` e `keycloak`, um usuário por banco (`infra/postgres/init.sql`) |
 | RabbitMQ   | http://localhost:15672 (management)            | topologia de `infra/rabbitmq/definitions.json`                             |
 | MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
-| Keycloak   | http://localhost:8081                          | admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`                   |
+| Keycloak   | http://localhost:8081                          | console admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`; realm `flowsla` importado de `infra/keycloak/realm-flowsla.json` |
 | Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
 
 Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam na rede `flowsla-<ENVIRONMENT>`, que o ms-notificacoes usa como rede externa para acessar o PostgreSQL e o RabbitMQ compartilhados.
+
+#### Credenciais de desenvolvimento (realm `flowsla`)
+
+| O quê | Valor em dev | Uso |
+| --- | --- | --- |
+| Gestor inicial | usuário `gestor` (`gestor@flowsla.local`), senha `KEYCLOAK_GESTOR_PASSWORD` | primeiro login; cadastra os demais usuários. O `sub` é fixo e o mesmo da `V2__cria_usuario.sql` |
+| Client do frontend | `flowsla-frontend` (público, Authorization Code + PKCE S256) | redirect em `FRONTEND_URL/*`; o token sai com `aud` `app-principal` e `ms-notificacoes` e com `realm_access.roles` |
+| Conta de serviço | client `app-principal-admin`, segredo `KEYCLOAK_ADMIN_CLIENT_SECRET` | Admin API; só `manage-users`, `view-users` e `view-realm` |
+| E-mails do Keycloak | SMTP `SMTP_HOST:SMTP_PORT` (Mailpit) | ver em http://localhost:8025 |
+
+O backend valida o token em `KEYCLOAK_ISSUER_URI` (o `iss`) e busca as chaves em `KEYCLOAK_JWK_SET_URI`. `GET /api/usuarios/me` devolve o usuário do token.
+
+> [!WARNING]
+> O realm só é importado se ainda não existir no banco do Keycloak. Depois de alterar o `realm-flowsla.json`, rode `make run-dev-down` (apaga os dados de dev) e suba de novo.
 
 > [!WARNING]
 > O `init.sql` só roda com o volume do PostgreSQL vazio. Se o ambiente já foi criado antes, rode `make run-dev-down` (apaga os dados de dev) antes de subir de novo.
@@ -184,6 +198,8 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 │       └── ci.yml
 ├── .gitignore
 ├── infra # Arquivos relacionados à infraestrutura
+│   ├── keycloak
+│   │   └── realm-flowsla.json # Realm importado na subida (papéis, clients, gestor inicial, SMTP)
 │   ├── postgres
 │   │   └── init.sql # Bancos e usuários do PostgreSQL compartilhado
 │   ├── rabbitmq

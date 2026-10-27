@@ -10,4 +10,4 @@ services:
       - /var/lib/postgresql/data
 
   keycloak:
-    command: start-dev
+    command: start-dev --import-realm
