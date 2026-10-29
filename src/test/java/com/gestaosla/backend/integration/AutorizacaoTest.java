@@ -148,8 +148,8 @@ class AutorizacaoTest {
     private String usuario(Papel perfilLocal, boolean ativo) {
         UUID sub = UUID.randomUUID();
         jdbc.update("""
-                insert into usuario (id, created_at, updated_at, sub, nome, perfil, ativo)
-                values (?, now(), now(), ?, 'Teste', ?, ?)""", UUID.randomUUID(), sub, perfilLocal.name(), ativo);
+                insert into usuario (id, created_at, updated_at, sub, nome, email, perfil, ativo)
+                values (?, now(), now(), ?, 'Teste', ?, ?, ?)""", UUID.randomUUID(), sub, sub + "@teste.local", perfilLocal.name(), ativo);
         return sub.toString();
     }
 

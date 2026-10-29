@@ -24,11 +24,19 @@ Erro de validação traz também `erros`: `[{ "campo": "titulo", "mensagem": "mu
 | Autenticado, mas sem o papel exigido | 403 | `ACESSO_NEGADO` | Automático (filtro ou `@PreAuthorize`) |
 | Recurso inexistente **ou de outro cliente** | 404 | `RECURSO_NAO_ENCONTRADO` | `throw new RecursoNaoEncontradoException()` |
 | Bloqueio otimista: registro alterado por outra operação (RN-117) | 409 | `CONFLITO_VERSAO` | Automático (`ObjectOptimisticLockingFailureException`) |
+| Conflito com registro existente, ex.: conta no Keycloak com mesmo username ou e-mail (RN-127) | 409 | ver catálogo de conflitos | `throw new ConflitoException(CodigoErro.X, "mensagem")` (ex.: `UsuarioJaExisteException`) |
 | Regra de negócio violada | 422 | ver catálogo | `throw new RegraNegocioException(CodigoErro.X, "mensagem")` |
 | Outros erros do Spring MVC (405, 406, 415…) | o do Spring | `REQUISICAO_INVALIDA` | Automático |
 | Erro inesperado | 500 | `ERRO_INTERNO` | Automático; a mensagem real só vai para o log |
+| Serviço externo fora do ar, lento além do timeout ou com 5xx (RN-137) | 503 | `SERVICO_INDISPONIVEL` | `throw new ServicoIndisponivelException("mensagem", causa)` (ex.: `IdpIndisponivelException`); a mensagem ao cliente é fixa e a causa vai para o log |
 
 **Isolamento (RN-126):** recurso de outro cliente retorna **404, nunca 403**, para não revelar que existe. O serviço busca já filtrando pelo cliente do token e, se não achar, lança `RecursoNaoEncontradoException`, a mesma de quando o id não existe.
+
+## Catálogo de conflitos (409)
+
+| Código | Situação |
+| --- | --- |
+| `USUARIO_JA_EXISTE` | Já existe conta no Keycloak com o mesmo username ou e-mail (RN-127) |
 
 ## Catálogo de regras de negócio (422)
 

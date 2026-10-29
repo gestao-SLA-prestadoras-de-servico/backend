@@ -8,6 +8,7 @@ import com.gestaosla.backend.shared.api.EntidadeBase;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,8 +23,16 @@ class Usuario extends EntidadeBase {
 
     private String nome;
 
+    private String email;
+
     @Enumerated(EnumType.STRING)
     private Papel perfil;
 
     private boolean ativo;
+
+    // Empresa do usuário de perfil CLIENTE (RN-130); nula para técnico e gestor.
+    private UUID clienteId;
+
+    @Version
+    private long version;
 }

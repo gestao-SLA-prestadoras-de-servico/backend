@@ -18,11 +18,12 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 | [Spring Web MVC](https://docs.spring.io/spring-framework/reference/web/webmvc.html)                        | 7.x                                 |
 | [Spring Security OAuth2 Resource Server](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html) | 7.x                    |
 | [Spring AMQP (RabbitMQ)](https://spring.io/projects/spring-amqp)                                           | 4.x                                 |
+| [Spring RestClient](https://docs.spring.io/spring-framework/reference/integration/rest-clients.html) | 7.x (`spring-boot-starter-restclient`; chamadas HTTP externas) |
 | [Spring Boot Actuator](https://docs.spring.io/spring-boot/reference/actuator/index.html)                   | 4.1.1                               |
 | [Micrometer Prometheus](https://docs.micrometer.io/micrometer/reference/implementations/prometheus.html)   | 1.17.1                              |
 | [Flyway](https://documentation.red-gate.com/flyway)                                                        | 12.4.0 (+ `flyway-database-postgresql`) |
 | [Spring Modulith](https://spring.io/projects/spring-modulith)                                              | 2.1.1 (só verificação de módulos, nos testes) |
-| [Spring Framework Resilience](https://docs.spring.io/spring-framework/reference/core/resilience.html)      | 7.x (`@Retryable` / `@ConcurrencyLimit`; escolhido no lugar do Resilience4j) |
+| [Resilience4j](https://resilience4j.readme.io/) | 2.4.0 (`resilience4j-spring-boot4`; retry da Admin API do Keycloak, ver autenticacao-03) |
 | [PostgreSQL](https://www.postgresql.org/docs/17/)                                                          | 17 (imagem Docker)                  |
 | [Maven](https://maven.apache.org/)                                                                         | -                                   |
 | [Testcontainers](https://java.testcontainers.org/)                                                         | ^2.0.5 (PostgreSQL + JUnit Jupiter) |
