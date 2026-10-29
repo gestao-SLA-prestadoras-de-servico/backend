@@ -14,6 +14,10 @@ public enum CodigoErro {
     CONFLITO_VERSAO,
     REQUISICAO_INVALIDA,
     ERRO_INTERNO,
+    SERVICO_INDISPONIVEL,       // RN-137: serviço externo fora do ar ou timeout esgotado (503)
+
+    // Conflitos: lançados via ConflitoException (409)
+    USUARIO_JA_EXISTE,          // RN-127: conta com mesmo username ou e-mail no Keycloak
 
     // Regras de negócio: lançados via RegraNegocioException (422)
     TRANSICAO_INVALIDA,         // RN-11, RN-13

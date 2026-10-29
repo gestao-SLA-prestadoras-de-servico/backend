@@ -18,11 +18,12 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 | [Spring Web MVC](https://docs.spring.io/spring-framework/reference/web/webmvc.html)                        | 7.x                                 |
 | [Spring Security OAuth2 Resource Server](https://docs.spring.io/spring-security/reference/servlet/oauth2/resource-server/index.html) | 7.x                    |
 | [Spring AMQP (RabbitMQ)](https://spring.io/projects/spring-amqp)                                           | 4.x                                 |
+| [Spring RestClient](https://docs.spring.io/spring-framework/reference/integration/rest-clients.html) | 7.x (`spring-boot-starter-restclient`; chamadas HTTP externas) |
 | [Spring Boot Actuator](https://docs.spring.io/spring-boot/reference/actuator/index.html)                   | 4.1.1                               |
 | [Micrometer Prometheus](https://docs.micrometer.io/micrometer/reference/implementations/prometheus.html)   | 1.17.1                              |
 | [Flyway](https://documentation.red-gate.com/flyway)                                                        | 12.4.0 (+ `flyway-database-postgresql`) |
 | [Spring Modulith](https://spring.io/projects/spring-modulith)                                              | 2.1.1 (só verificação de módulos, nos testes) |
-| [Spring Framework Resilience](https://docs.spring.io/spring-framework/reference/core/resilience.html)      | 7.x (`@Retryable` / `@ConcurrencyLimit`; escolhido no lugar do Resilience4j) |
+| [Resilience4j](https://resilience4j.readme.io/) | 2.4.0 (`resilience4j-spring-boot4`; retry da Admin API do Keycloak, ver autenticacao-03) |
 | [PostgreSQL](https://www.postgresql.org/docs/17/)                                                          | 17 (imagem Docker)                  |
 | [Maven](https://maven.apache.org/)                                                                         | -                                   |
 | [Testcontainers](https://java.testcontainers.org/)                                                         | ^2.0.5 (PostgreSQL + JUnit Jupiter) |
@@ -52,6 +53,18 @@ O backend é um monólito modular. Cada módulo fica em `com.gestaosla.backend.<
 | `retencao`   | Políticas de retenção e expurgo de dados               |
 
 O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModules.verify()`) e reprova o build se um módulo importar o pacote `internal` de outro ou se houver dependência circular entre módulos.
+
+## Autenticação e autorização
+
+Toda rota, exceto `/actuator/health`, exige `Authorization: Bearer <token do Keycloak>`. O token é validado quanto a assinatura, `iss` e `aud` (`app-principal`). Usuário inativo ou sem registro local recebe 401. O papel vem **sempre** do token (`realm_access.roles` → `ROLE_CLIENTE`/`ROLE_TECNICO`/`ROLE_GESTOR`), nunca da tabela `usuario` (RN-130). Config em `identidade.internal.SegurancaConfig` e `UsuarioCorrenteConverter`.
+
+```java
+@GetMapping("/relatorios")
+@PreAuthorize("hasRole('GESTOR')")                         // papel errado → 403
+List<Relatorio> listar(@AuthenticationPrincipal UsuarioCorrente usuario) { // sub, papel e empresa do cliente
+```
+
+CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que passam pelo decoder real (ver `AutorizacaoTest`).
 
 ## Data e hora
 
@@ -94,10 +107,24 @@ O ambiente sobe o backend e as dependências dele. O backend só inicia depois q
 | PostgreSQL | só rede interna (`postgres:5432`)              | bancos `app_principal`, `notificacoes` e `keycloak`, um usuário por banco (`infra/postgres/init.sql`) |
 | RabbitMQ   | http://localhost:15672 (management)            | topologia de `infra/rabbitmq/definitions.json`                             |
 | MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
-| Keycloak   | http://localhost:8081                          | admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`                   |
+| Keycloak   | http://localhost:8081                          | console admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`; realm `flowsla` importado de `infra/keycloak/realm-flowsla.json` |
 | Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
 
 Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam na rede `flowsla-<ENVIRONMENT>`, que o ms-notificacoes usa como rede externa para acessar o PostgreSQL e o RabbitMQ compartilhados.
+
+#### Credenciais de desenvolvimento (realm `flowsla`)
+
+| O quê | Valor em dev | Uso |
+| --- | --- | --- |
+| Gestor inicial | usuário `gestor` (`gestor@flowsla.local`), senha `KEYCLOAK_GESTOR_PASSWORD` | primeiro login; cadastra os demais usuários. O `sub` é fixo e o mesmo da `V2__cria_usuario.sql` |
+| Client do frontend | `flowsla-frontend` (público, Authorization Code + PKCE S256) | redirect em `FRONTEND_URL/*`; o token sai com `aud` `app-principal` e `ms-notificacoes` e com `realm_access.roles` |
+| Conta de serviço | client `app-principal-admin`, segredo `KEYCLOAK_ADMIN_CLIENT_SECRET` | Admin API; só `manage-users`, `view-users` e `view-realm` |
+| E-mails do Keycloak | SMTP `SMTP_HOST:SMTP_PORT` (Mailpit) | ver em http://localhost:8025 |
+
+O backend valida o token em `KEYCLOAK_ISSUER_URI` (o `iss`) e busca as chaves em `KEYCLOAK_JWK_SET_URI`. `GET /api/usuarios/me` devolve o usuário do token.
+
+> [!WARNING]
+> O realm só é importado se ainda não existir no banco do Keycloak. Depois de alterar o `realm-flowsla.json`, rode `make run-dev-down` (apaga os dados de dev) e suba de novo.
 
 > [!WARNING]
 > O `init.sql` só roda com o volume do PostgreSQL vazio. Se o ambiente já foi criado antes, rode `make run-dev-down` (apaga os dados de dev) antes de subir de novo.
@@ -184,6 +211,8 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 │       └── ci.yml
 ├── .gitignore
 ├── infra # Arquivos relacionados à infraestrutura
+│   ├── keycloak
+│   │   └── realm-flowsla.json # Realm importado na subida (papéis, clients, gestor inicial, SMTP)
 │   ├── postgres
 │   │   └── init.sql # Bancos e usuários do PostgreSQL compartilhado
 │   ├── rabbitmq
