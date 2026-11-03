@@ -232,6 +232,57 @@
         "tags" : [ "Cadastro" ]
       }
     },
+    "/api/usuarios" : {
+      "post" : {
+        "description" : "Somente GESTOR. Cria a conta no Keycloak com o papel e o registro local; o usuário recebe por e-mail o link para definir a senha (o sistema nunca recebe senha).",
+        "operationId" : "cadastrar",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NovoUsuario"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UsuarioCadastrado"
+                }
+              }
+            },
+            "description" : "Usuário cadastrado; emailDefinicaoSenhaEnviado=false se o e-mail falhou"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/Conflito"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/RegraNegocio"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          },
+          "503" : {
+            "$ref" : "#/components/responses/ServicoIndisponivel"
+          }
+        },
+        "summary" : "Cadastrar usuário",
+        "tags" : [ "Identidade" ]
+      }
+    },
     "/api/usuarios/me" : {
       "get" : {
         "description" : "Qualquer perfil. Identificado pelo sub do token.",
@@ -570,6 +621,35 @@
         },
         "required" : [ "bairro", "cep", "cidade", "logradouro", "numero", "uf" ]
       },
+      "NovoUsuario" : {
+        "type" : "object",
+        "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "description" : "Empresa cliente: obrigatória para CLIENTE, proibida para TECNICO e GESTOR"
+          },
+          "email" : {
+            "type" : "string",
+            "format" : "email",
+            "example" : "ana.lima@norte.com.br",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "nome" : {
+            "type" : "string",
+            "example" : "Ana Lima",
+            "maxLength" : 150,
+            "minLength" : 0
+          },
+          "perfil" : {
+            "type" : "string",
+            "enum" : [ "CLIENTE", "TECNICO", "GESTOR" ],
+            "example" : "CLIENTE"
+          }
+        },
+        "required" : [ "email", "nome", "perfil" ]
+      },
       "PageMetadata" : {
         "type" : "object",
         "properties" : {
@@ -652,9 +732,46 @@
           }
         }
       },
+      "UsuarioCadastrado" : {
+        "type" : "object",
+        "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "email" : {
+            "type" : "string"
+          },
+          "emailDefinicaoSenhaEnviado" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "nome" : {
+            "type" : "string"
+          },
+          "perfil" : {
+            "type" : "string",
+            "enum" : [ "CLIENTE", "TECNICO", "GESTOR" ]
+          },
+          "sub" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "UsuarioResponse" : {
         "type" : "object",
         "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "email" : {
+            "type" : "string"
+          },
           "id" : {
             "type" : "string",
             "format" : "uuid"

@@ -33,12 +33,11 @@ class UsuarioCorrenteConverter implements Converter<Jwt, AbstractAuthenticationT
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
         UUID sub = UUID.fromString(jwt.getSubject());
-        boolean ativo = usuarios.findBySub(sub).map(Usuario::isAtivo).orElse(false);
-        if (!ativo) {
-            throw new DisabledException("Usuário inativo ou sem cadastro no sistema.");
-        }
+        Usuario usuario = usuarios.findBySub(sub).filter(Usuario::isAtivo)
+                .orElseThrow(() -> new DisabledException("Usuário inativo ou sem cadastro no sistema."));
         List<Papel> papeis = papeis(jwt);
-        return new Autenticacao(new UsuarioCorrente(sub, papeis.isEmpty() ? null : papeis.getFirst(), null), jwt,
+        // A empresa é dado de domínio e não vai no token (seção 3.5): vem do registro local.
+        return new Autenticacao(new UsuarioCorrente(sub, papeis.isEmpty() ? null : papeis.getFirst(), usuario.getClienteId()), jwt,
                 papeis.stream().map(p -> new SimpleGrantedAuthority("ROLE_" + p)).toList());
     }
 

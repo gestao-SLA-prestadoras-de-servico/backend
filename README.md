@@ -58,6 +58,19 @@ O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModul
 
 Toda rota, exceto `/actuator/health`, exige `Authorization: Bearer <token do Keycloak>`. O token é validado quanto a assinatura, `iss` e `aud` (`app-principal`). Usuário inativo ou sem registro local recebe 401. O papel vem **sempre** do token (`realm_access.roles` → `ROLE_CLIENTE`/`ROLE_TECNICO`/`ROLE_GESTOR`), nunca da tabela `usuario` (RN-130). Config em `identidade.internal.SegurancaConfig` e `UsuarioCorrenteConverter`.
 
+Restringir um endpoint por papel tem **dois passos**, os dois obrigatórios:
+
+1. **Regra de rota do módulo** (responde 403 *antes* de o corpo ser lido e validado; sem ela, um não autorizado com corpo inválido receberia 400 e veria o formato do request):
+
+```java
+@Bean
+RegrasAcesso regrasRelatorio() {   // shared.api.RegrasAcesso, num @Configuration do próprio módulo
+    return rotas -> rotas.requestMatchers("/api/relatorios/**").hasRole("GESTOR");
+}
+```
+
+2. **`@PreAuthorize` no método**, como segunda barreira e documentação de quem pode chamar:
+
 ```java
 @GetMapping("/relatorios")
 @PreAuthorize("hasRole('GESTOR')")                         // papel errado → 403

@@ -52,3 +52,7 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | `CANCELAMENTO_NAO_PERMITIDO` | Cancelamento a partir de `RESOLVIDO` ou depois (RN-19) |
 | `REATRIBUICAO_NAO_PERMITIDA` | Reatribuição fora de `ATRIBUIDO`/`EM_ATENDIMENTO` (RN-20) |
 | `REABERTURA_NAO_PERMITIDA` | Reabertura fora de `RESOLVIDO` (RN-93, RN-99) |
+| `CLIENTE_OBRIGATORIO` | Usuário de perfil CLIENTE sem a empresa cliente (RF-09) |
+| `CLIENTE_INEXISTENTE` | Empresa cliente informada não existe (RF-09) |
+| `CLIENTE_INATIVO` | Empresa cliente inativa não aceita novo usuário (cadastro-01) |
+| `CLIENTE_NAO_PERMITIDO` | Técnico ou gestor informado com empresa cliente (RF-09) |
