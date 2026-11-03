@@ -66,6 +66,12 @@ List<Relatorio> listar(@AuthenticationPrincipal UsuarioCorrente usuario) { // su
 
 CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que passam pelo decoder real (ver `AutorizacaoTest`).
 
+## Documentação da API (OpenAPI)
+
+- **Contrato versionado:** `docs/openapi.json`, gerado do código pelo `OpenApiContratoTest` (`make integration-test`). Se um endpoint mudar, o teste reescreve o arquivo e falha: confira o diff e commite junto. O frontend gera o cliente HTTP a partir desse arquivo.
+- **Swagger UI (só dev, `API_DOCS_ENABLED=true`):** http://localhost:8080/swagger-ui.html. Em **Authorize**, o login abre o Keycloak (client `flowsla-swagger`, Authorization Code + PKCE); entre com `gestor`.
+- **Novo endpoint:** `@Tag(name = "<Módulo>")` no controller, `@Operation(summary = ...)` no método e `@ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)` para os erros específicos. 400, 401, 403 e 500 entram sozinhos.
+
 ## Listagens paginadas
 
 Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400.
@@ -141,6 +147,7 @@ Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam 
 | --- | --- | --- |
 | Gestor inicial | usuário `gestor` (`gestor@flowsla.local`), senha `KEYCLOAK_GESTOR_PASSWORD` | primeiro login; cadastra os demais usuários. O `sub` é fixo e o mesmo da `V2__cria_usuario.sql` |
 | Client do frontend | `flowsla-frontend` (público, Authorization Code + PKCE S256) | redirect em `FRONTEND_URL/*`; o token sai com `aud` `app-principal` e `ms-notificacoes` e com `realm_access.roles` |
+| Client do Swagger UI | `flowsla-swagger` (público, PKCE S256) | redirect só em `SWAGGER_URL/swagger-ui/oauth2-redirect.html`; mesmos `aud` do frontend |
 | Conta de serviço | client `app-principal-admin`, segredo `KEYCLOAK_ADMIN_CLIENT_SECRET` | Admin API; só `manage-users`, `view-users` e `view-realm` |
 | E-mails do Keycloak | SMTP `SMTP_HOST:SMTP_PORT` (Mailpit) | ver em http://localhost:8025 |
 
@@ -220,6 +227,7 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 ├── docs # Documentação das tasks do backend
 │   ├── convencoes-banco.md # Padrão de schema e migrações
 │   ├── erros-api.md # Formato dos erros e catálogo de códigos
+│   ├── openapi.json # Contrato da API, gerado pelo OpenApiContratoTest
 │   ├── tasks # O que cada task resolveu
 │   └── testes # Testes executados em cada task
 ├── Dockerfile

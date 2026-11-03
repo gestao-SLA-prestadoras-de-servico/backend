@@ -1,0 +1,692 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "description" : "API REST do app-principal. Todo erro sai como Problem Details (RFC 9457) com o campo `codigo`; o catálogo está em docs/erros-api.md.",
+    "title" : "FlowSLA — app-principal",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "/"
+  } ],
+  "security" : [ {
+    "keycloak" : [ ]
+  } ],
+  "tags" : [ {
+    "description" : "Usuários, perfis e autenticação",
+    "name" : "Identidade"
+  }, {
+    "description" : "Clientes, contratos e políticas de SLA",
+    "name" : "Cadastro"
+  } ],
+  "paths" : {
+    "/api/clientes" : {
+      "get" : {
+        "description" : "Somente GESTOR. Paginado (20 por página, máximo 100); inclui inativos.",
+        "operationId" : "listar",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "razaoSocial",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "ativo",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "razaoSocial,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelClienteResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar clientes",
+        "tags" : [ "Cadastro" ]
+      },
+      "post" : {
+        "description" : "Somente GESTOR. O cliente nasce ativo.",
+        "operationId" : "criar",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DadosCliente"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClienteResponse"
+                }
+              }
+            },
+            "description" : "Cliente criado"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Cadastrar cliente",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/clientes/{id}" : {
+      "put" : {
+        "description" : "Somente GESTOR. Envie a `version` recebida na listagem (RN-117).",
+        "operationId" : "editar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EdicaoCliente"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClienteResponse"
+                }
+              }
+            },
+            "description" : "Cliente atualizado, com a nova version"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "409" : {
+            "$ref" : "#/components/responses/ConflitoVersao"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Editar cliente",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/clientes/{id}/inativacao" : {
+      "post" : {
+        "description" : "Somente GESTOR. Idempotente; preserva o histórico (RN-07).",
+        "operationId" : "inativar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Cliente inativo"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Inativar cliente",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/usuarios/me" : {
+      "get" : {
+        "description" : "Qualquer perfil. Identificado pelo sub do token.",
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UsuarioResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Usuário autenticado",
+        "tags" : [ "Identidade" ]
+      }
+    }
+  },
+  "components" : {
+    "responses" : {
+      "AcessoNegado" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "ACESSO_NEGADO" : {
+                "value" : {
+                  "codigo" : "ACESSO_NEGADO",
+                  "detail" : "Sem permissão para esta operação.",
+                  "status" : 403,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Papel sem permissão para a operação"
+      },
+      "Conflito" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "USUARIO_JA_EXISTE" : {
+                "value" : {
+                  "codigo" : "USUARIO_JA_EXISTE",
+                  "detail" : "Já existe uma conta com este username ou e-mail.",
+                  "status" : 409,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Conflito com registro existente"
+      },
+      "ConflitoVersao" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "CONFLITO_VERSAO" : {
+                "value" : {
+                  "codigo" : "CONFLITO_VERSAO",
+                  "detail" : "O registro foi alterado por outra operação. Recarregue os dados e tente novamente.",
+                  "status" : 409,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Registro alterado por outra operação (RN-117)"
+      },
+      "ErroInterno" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "ERRO_INTERNO" : {
+                "value" : {
+                  "codigo" : "ERRO_INTERNO",
+                  "detail" : "Erro interno. Tente novamente mais tarde.",
+                  "status" : 500,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Erro inesperado"
+      },
+      "NaoAutenticado" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "NAO_AUTENTICADO" : {
+                "value" : {
+                  "codigo" : "NAO_AUTENTICADO",
+                  "detail" : "Autenticação necessária.",
+                  "status" : 401,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Sem token, token inválido ou usuário inativo"
+      },
+      "NaoEncontrado" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "RECURSO_NAO_ENCONTRADO" : {
+                "value" : {
+                  "codigo" : "RECURSO_NAO_ENCONTRADO",
+                  "detail" : "Recurso não encontrado.",
+                  "status" : 404,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Recurso inexistente ou de outro cliente"
+      },
+      "RegraNegocio" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "TRANSICAO_INVALIDA" : {
+                "value" : {
+                  "codigo" : "TRANSICAO_INVALIDA",
+                  "detail" : "Chamado ENCERRADO não aceita transição.",
+                  "status" : 422,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Regra de negócio violada (ver catálogo)"
+      },
+      "ServicoIndisponivel" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "SERVICO_INDISPONIVEL" : {
+                "value" : {
+                  "codigo" : "SERVICO_INDISPONIVEL",
+                  "detail" : "Serviço temporariamente indisponível. Tente novamente em instantes.",
+                  "status" : 503,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Serviço externo fora do ar ou lento (RN-137)"
+      },
+      "Validacao" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "VALIDACAO" : {
+                "value" : {
+                  "codigo" : "VALIDACAO",
+                  "detail" : "Um ou mais campos são inválidos.",
+                  "erros" : [ {
+                    "campo" : "emailContato",
+                    "mensagem" : "must be a well-formed email address"
+                  } ],
+                  "status" : 400,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Requisição inválida"
+      }
+    },
+    "schemas" : {
+      "ClienteResponse" : {
+        "type" : "object",
+        "properties" : {
+          "ativo" : {
+            "type" : "boolean"
+          },
+          "emailContato" : {
+            "type" : "string"
+          },
+          "endereco" : {
+            "$ref" : "#/components/schemas/Endereco"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "razaoSocial" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DadosCliente" : {
+        "type" : "object",
+        "properties" : {
+          "emailContato" : {
+            "type" : "string",
+            "format" : "email",
+            "example" : "contato@norte.com.br",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "endereco" : {
+            "$ref" : "#/components/schemas/Endereco"
+          },
+          "razaoSocial" : {
+            "type" : "string",
+            "example" : "Refrigeração Norte Ltda",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "emailContato", "endereco", "razaoSocial" ]
+      },
+      "EdicaoCliente" : {
+        "type" : "object",
+        "properties" : {
+          "emailContato" : {
+            "type" : "string",
+            "format" : "email",
+            "maxLength" : 254,
+            "minLength" : 0
+          },
+          "endereco" : {
+            "$ref" : "#/components/schemas/Endereco"
+          },
+          "razaoSocial" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "example" : 0
+          }
+        },
+        "required" : [ "emailContato", "endereco", "razaoSocial", "version" ]
+      },
+      "Endereco" : {
+        "type" : "object",
+        "properties" : {
+          "bairro" : {
+            "type" : "string",
+            "example" : "Aldeota",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "cep" : {
+            "type" : "string",
+            "example" : "60150160",
+            "minLength" : 1,
+            "pattern" : "\\d{8}"
+          },
+          "cidade" : {
+            "type" : "string",
+            "example" : "Fortaleza",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "complemento" : {
+            "type" : "string",
+            "example" : "Sala 301",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "logradouro" : {
+            "type" : "string",
+            "example" : "Av. Santos Dumont",
+            "maxLength" : 200,
+            "minLength" : 0
+          },
+          "numero" : {
+            "type" : "string",
+            "example" : "1500",
+            "maxLength" : 20,
+            "minLength" : 0
+          },
+          "uf" : {
+            "type" : "string",
+            "example" : "CE",
+            "minLength" : 1,
+            "pattern" : "[A-Z]{2}"
+          }
+        },
+        "required" : [ "bairro", "cep", "cidade", "logradouro", "numero", "uf" ]
+      },
+      "PageMetadata" : {
+        "type" : "object",
+        "properties" : {
+          "number" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalElements" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalPages" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "number", "size", "totalElements", "totalPages" ]
+      },
+      "PagedModelClienteResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ClienteResponse"
+            }
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/PageMetadata"
+          }
+        },
+        "required" : [ "content", "page" ]
+      },
+      "Problema" : {
+        "type" : "object",
+        "description" : "Problem Details (RFC 9457) com o código estável do erro",
+        "properties" : {
+          "codigo" : {
+            "type" : "string",
+            "description" : "Ver docs/erros-api.md"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "erros" : {
+            "type" : "array",
+            "description" : "Só em VALIDACAO: um item por campo",
+            "items" : {
+              "type" : "object",
+              "properties" : {
+                "campo" : {
+                  "type" : "string"
+                },
+                "mensagem" : {
+                  "type" : "string"
+                }
+              }
+            }
+          },
+          "instance" : {
+            "type" : "string",
+            "example" : "/api/clientes"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "example" : 400
+          },
+          "title" : {
+            "type" : "string",
+            "example" : "Bad Request"
+          },
+          "type" : {
+            "type" : "string",
+            "example" : "about:blank"
+          }
+        }
+      },
+      "UsuarioResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "nome" : {
+            "type" : "string"
+          },
+          "perfil" : {
+            "type" : "string",
+            "enum" : [ "CLIENTE", "TECNICO", "GESTOR" ]
+          },
+          "sub" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      }
+    },
+    "securitySchemes" : {
+      "keycloak" : {
+        "description" : "Login no Keycloak (realm flowsla). No Swagger UI: Authorize → client flowsla-swagger.",
+        "flows" : {
+          "authorizationCode" : {
+            "authorizationUrl" : "http://localhost:8081/realms/flowsla/protocol/openid-connect/auth",
+            "scopes" : {
+              "openid" : "Identidade do usuário"
+            },
+            "tokenUrl" : "http://localhost:8081/realms/flowsla/protocol/openid-connect/token"
+          }
+        },
+        "type" : "oauth2"
+      }
+    }
+  }
+}
