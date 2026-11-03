@@ -2,6 +2,8 @@ package com.gestaosla.backend.identidade.api;
 
 import java.util.UUID;
 
+import com.gestaosla.backend.shared.api.Papel;
+
 /**
  * Usuário da requisição, montado a partir do token. Injetar com {@code @AuthenticationPrincipal UsuarioCorrente}.
  *

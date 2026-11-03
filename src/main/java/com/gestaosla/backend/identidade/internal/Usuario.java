@@ -2,7 +2,7 @@ package com.gestaosla.backend.identidade.internal;
 
 import java.util.UUID;
 
-import com.gestaosla.backend.identidade.api.Papel;
+import com.gestaosla.backend.shared.api.Papel;
 import com.gestaosla.backend.shared.api.EntidadeBase;
 
 import jakarta.persistence.Entity;

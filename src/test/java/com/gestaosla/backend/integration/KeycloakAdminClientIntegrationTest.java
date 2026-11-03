@@ -27,7 +27,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.gestaosla.backend.TestcontainersConfiguration;
 import com.gestaosla.backend.identidade.api.KeycloakAdminClient;
 import com.gestaosla.backend.identidade.api.NovoUsuarioKeycloak;
-import com.gestaosla.backend.identidade.api.Papel;
+import com.gestaosla.backend.shared.api.Papel;
 import com.gestaosla.backend.identidade.api.UsuarioJaExisteException;
 import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 

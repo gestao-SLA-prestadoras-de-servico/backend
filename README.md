@@ -66,6 +66,21 @@ List<Relatorio> listar(@AuthenticationPrincipal UsuarioCorrente usuario) { // su
 
 CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que passam pelo decoder real (ver `AutorizacaoTest`).
 
+## Auditoria
+
+Operação sensível (RN-121) registra auditoria **na própria transação** (RN-120):
+
+```java
+@Transactional
+void reabrir(...) {
+    // ... altera o chamado
+    auditoria.registrar(Ator.usuario(usuario.sub(), usuario.papel()), OperacaoAuditada.REABERTURA,
+            EntidadeAuditada.CHAMADO, chamado.getId(), chamado.getId(), Map.of("de", "RESOLVIDO", "para", "ATRIBUIDO"));
+}
+```
+
+Fora de transação, `registrar` falha; rotinas agendadas usam `Ator.SISTEMA`. A tabela é imutável também no banco: trigger rejeita `UPDATE`, `TRUNCATE` e `DELETE` de registro com menos de 5 anos.
+
 ## Data e hora
 
 O sistema tem fuso único (`FUSO_HORARIO`, hoje `America/Fortaleza`), usado pela JVM, pela sessão JDBC, pelo Hibernate e pelo Postgres. Quem precisa da hora injeta `java.time.Clock` (bean do `shared`); `Instant.now()`, `LocalDateTime.now()` e similares sem o Clock reprovam o `RelogioArquiteturaTest`. Nos testes, `RelogioMutavel` substitui o Clock e avança o tempo sem esperar.
