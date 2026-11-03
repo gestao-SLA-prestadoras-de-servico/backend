@@ -7,8 +7,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.data.core.PropertyReferenceException;
+import org.springframework.data.core.TypeInformation;
 import org.springframework.http.MediaType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
@@ -97,6 +100,12 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldReturn400ForUnknownSortProperty() throws Exception {
+        problema(mvc.perform(get("/ordenacao")), 400, "VALIDACAO")
+                .andExpect(jsonPath("$.detail").value("Campo de ordenação inválido: senha."));
+    }
+
+    @Test
     void shouldReturn405AsInvalidRequest() throws Exception {
         problema(mvc.perform(post("/conflito")), 405, "REQUISICAO_INVALIDA");
     }
@@ -158,6 +167,11 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/servico-indisponivel")
         void servicoIndisponivel() {
             throw new IdpIndisponivelException("Keycloak fora do ar", new IOException("connection refused keycloak:8080"));
+        }
+
+        @GetMapping("/ordenacao")
+        void ordenacao() {
+            throw new PropertyReferenceException("senha", TypeInformation.of(Pedido.class), List.of());
         }
 
         @GetMapping("/inesperado")

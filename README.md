@@ -66,6 +66,14 @@ List<Relatorio> listar(@AuthenticationPrincipal UsuarioCorrente usuario) { // su
 
 CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que passam pelo decoder real (ver `AutorizacaoTest`).
 
+## Listagens paginadas
+
+Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400.
+
+## Edição concorrente
+
+Entidade editada por mais de um usuário devolve `version` no GET e exige essa `version` no PUT. Se outro usuário salvou antes, a resposta é 409 `CONFLITO_VERSAO` (RN-117), em vez de sobrescrever. Exemplo: `cadastro.internal.ClienteService.editar`.
+
 ## Auditoria
 
 Operação sensível (RN-121) registra auditoria **na própria transação** (RN-120):
