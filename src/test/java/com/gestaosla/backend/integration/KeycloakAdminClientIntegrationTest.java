@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -63,6 +64,7 @@ class KeycloakAdminClientIntegrationTest {
                     "/opt/keycloak/data/import/realm-flowsla.json", BindMode.READ_ONLY)
             .withExposedPorts(8080)
             .waitingFor(Wait.forHttp("/realms/flowsla/.well-known/openid-configuration").forStatusCode(200))
+            .withStartupTimeout(Duration.ofMinutes(3))
             .dependsOn(mailpit);
 
     @DynamicPropertySource

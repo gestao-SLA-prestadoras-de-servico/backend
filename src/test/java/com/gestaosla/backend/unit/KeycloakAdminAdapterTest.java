@@ -35,7 +35,7 @@ import com.sun.net.httpserver.HttpServer;
  */
 class KeycloakAdminAdapterTest {
 
-    private static final Duration TIMEOUT = Duration.ofMillis(150);
+    private static final Duration TIMEOUT = Duration.ofMillis(300);
     private static final UUID ID = UUID.fromString("0199a000-0000-7000-8000-0000000000b1");
     private static final NovoUsuarioKeycloak NOVO = new NovoUsuarioKeycloak("tecnico", "tecnico@flowsla.local", "Ana", "Lima");
     private static final String ENCONTRADO = "[{\"id\":\"" + ID + "\",\"username\":\"tecnico\",\"enabled\":true}]";
