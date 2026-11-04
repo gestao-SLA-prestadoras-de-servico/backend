@@ -20,8 +20,10 @@ import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import com.gestaosla.backend.shared.api.CodigoErro;
+import com.gestaosla.backend.shared.api.ConflitoException;
 import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 import com.gestaosla.backend.shared.api.RegraNegocioException;
+import com.gestaosla.backend.shared.api.ServicoIndisponivelException;
 
 /**
  * Qualquer erro da API sai como Problem Details (RFC 9457) com o campo {@code codigo} ({@link CodigoErro}).
@@ -49,7 +51,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "O registro foi alterado por outra operação. Recarregue os dados e tente novamente.");
     }
 
-    // Chegam aqui também os erros dos filtros de segurança (SegurancaErrosConfig).
+    @ExceptionHandler
+    ResponseEntity<ProblemDetail> conflito(ConflitoException ex) {
+        return problema(HttpStatus.CONFLICT, ex.getCodigo(), ex.getMessage());
+    }
+
+    @ExceptionHandler
+    ResponseEntity<ProblemDetail> servicoIndisponivel(ServicoIndisponivelException ex) {
+        log.warn("Serviço externo indisponível: {}", ex.getMessage(), ex.getCause());
+        return problema(HttpStatus.SERVICE_UNAVAILABLE, CodigoErro.SERVICO_INDISPONIVEL,
+                "Serviço temporariamente indisponível. Tente novamente em instantes.");
+    }
+
+    // Chegam aqui também os erros dos filtros de segurança (identidade.internal.SegurancaConfig).
     @ExceptionHandler
     ResponseEntity<ProblemDetail> naoAutenticado(AuthenticationException ex) {
         return problema(HttpStatus.UNAUTHORIZED, CodigoErro.NAO_AUTENTICADO, "Autenticação necessária.");
@@ -92,6 +106,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return switch (status.value()) {
             case 400 -> CodigoErro.VALIDACAO;
             case 404 -> CodigoErro.RECURSO_NAO_ENCONTRADO;
+            case 503 -> CodigoErro.SERVICO_INDISPONIVEL;
             default -> status.is5xxServerError() ? CodigoErro.ERRO_INTERNO : CodigoErro.REQUISICAO_INVALIDA;
         };
     }

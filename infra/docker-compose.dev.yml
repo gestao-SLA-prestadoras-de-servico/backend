@@ -24,7 +24,11 @@ services:
       - minio-dev:/data
 
   keycloak:
-    command: start-dev
+    command: start-dev --import-realm
+    environment:
+      # O navegador emite o token por localhost:8081 (iss); o backend busca as chaves por keycloak:8080.
+      KC_HOSTNAME: http://localhost:8081
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     ports:
       - "8081:8080"
 

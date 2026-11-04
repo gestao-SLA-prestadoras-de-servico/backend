@@ -78,7 +78,8 @@ services:
 
   keycloak:
     image: quay.io/keycloak/keycloak:26.4
-    command: start
+    # Importa infra/keycloak/realm-flowsla.json só se o realm ainda não existir no banco.
+    command: start --import-realm
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
@@ -89,6 +90,14 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME_STRICT: "false"
+      # Lidas pelos placeholders ${...} do realm-flowsla.json no import.
+      FRONTEND_URL: ${FRONTEND_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      KEYCLOAK_GESTOR_PASSWORD: ${KEYCLOAK_GESTOR_PASSWORD}
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro,z
     depends_on:
       postgres:
         condition: service_healthy

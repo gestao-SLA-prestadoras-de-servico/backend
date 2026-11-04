@@ -1,0 +1,92 @@
+{
+  "realm": "flowsla",
+  "enabled": true,
+  "smtpServer": {
+    "host": "${SMTP_HOST}",
+    "port": "${SMTP_PORT}",
+    "from": "no-reply@flowsla.local",
+    "fromDisplayName": "FlowSLA"
+  },
+  "roles": {
+    "realm": [
+      { "name": "CLIENTE" },
+      { "name": "TECNICO" },
+      { "name": "GESTOR" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "flowsla-frontend",
+      "name": "Frontend FlowSLA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["${FRONTEND_URL}/*"],
+      "webOrigins": ["${FRONTEND_URL}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${FRONTEND_URL}/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-app-principal",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "app-principal",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "audience-ms-notificacoes",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "ms-notificacoes",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "app-principal-admin",
+      "name": "Admin API do app-principal",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_ADMIN_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "id": "0199a000-0000-7000-8000-000000000001",
+      "username": "gestor",
+      "email": "gestor@flowsla.local",
+      "firstName": "Gestor",
+      "lastName": "Inicial",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "${KEYCLOAK_GESTOR_PASSWORD}", "temporary": false }
+      ],
+      "realmRoles": ["default-roles-flowsla", "GESTOR"]
+    },
+    {
+      "username": "service-account-app-principal-admin",
+      "enabled": true,
+      "serviceAccountClientId": "app-principal-admin",
+      "clientRoles": {
+        "realm-management": ["manage-users", "view-users", "view-realm"]
+      }
+    }
+  ]
+}

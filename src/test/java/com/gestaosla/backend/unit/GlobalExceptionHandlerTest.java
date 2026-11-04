@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.io.IOException;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -20,6 +22,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.gestaosla.backend.identidade.api.IdpIndisponivelException;
+import com.gestaosla.backend.identidade.api.UsuarioJaExisteException;
 import com.gestaosla.backend.shared.api.CodigoErro;
 import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 import com.gestaosla.backend.shared.api.RegraNegocioException;
@@ -81,6 +85,18 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void shouldReturn409WithConflictCode() throws Exception {
+        problema(mvc.perform(get("/conta-duplicada")), 409, "USUARIO_JA_EXISTE")
+                .andExpect(jsonPath("$.detail").value("Já existe uma conta com este username ou e-mail."));
+    }
+
+    @Test
+    void shouldReturn503WithoutLeakingExternalServiceDetails() throws Exception {
+        problema(mvc.perform(get("/servico-indisponivel")), 503, "SERVICO_INDISPONIVEL")
+                .andExpect(jsonPath("$.detail").value("Serviço temporariamente indisponível. Tente novamente em instantes."));
+    }
+
+    @Test
     void shouldReturn405AsInvalidRequest() throws Exception {
         problema(mvc.perform(post("/conflito")), 405, "REQUISICAO_INVALIDA");
     }
@@ -132,6 +148,16 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/regra-negocio")
         void regraNegocio() {
             throw new RegraNegocioException(CodigoErro.TRANSICAO_INVALIDA, "Chamado ENCERRADO não aceita transição.");
+        }
+
+        @GetMapping("/conta-duplicada")
+        void contaDuplicada() {
+            throw new UsuarioJaExisteException();
+        }
+
+        @GetMapping("/servico-indisponivel")
+        void servicoIndisponivel() {
+            throw new IdpIndisponivelException("Keycloak fora do ar", new IOException("connection refused keycloak:8080"));
         }
 
         @GetMapping("/inesperado")
