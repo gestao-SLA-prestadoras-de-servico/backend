@@ -66,6 +66,29 @@ List<Relatorio> listar(@AuthenticationPrincipal UsuarioCorrente usuario) { // su
 
 CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que passam pelo decoder real (ver `AutorizacaoTest`).
 
+## Listagens paginadas
+
+Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400.
+
+## Edição concorrente
+
+Entidade editada por mais de um usuário devolve `version` no GET e exige essa `version` no PUT. Se outro usuário salvou antes, a resposta é 409 `CONFLITO_VERSAO` (RN-117), em vez de sobrescrever. Exemplo: `cadastro.internal.ClienteService.editar`.
+
+## Auditoria
+
+Operação sensível (RN-121) registra auditoria **na própria transação** (RN-120):
+
+```java
+@Transactional
+void reabrir(...) {
+    // ... altera o chamado
+    auditoria.registrar(Ator.usuario(usuario.sub(), usuario.papel()), OperacaoAuditada.REABERTURA,
+            EntidadeAuditada.CHAMADO, chamado.getId(), chamado.getId(), Map.of("de", "RESOLVIDO", "para", "ATRIBUIDO"));
+}
+```
+
+Fora de transação, `registrar` falha; rotinas agendadas usam `Ator.SISTEMA`. A tabela é imutável também no banco: trigger rejeita `UPDATE`, `TRUNCATE` e `DELETE` de registro com menos de 5 anos.
+
 ## Data e hora
 
 O sistema tem fuso único (`FUSO_HORARIO`, hoje `America/Fortaleza`), usado pela JVM, pela sessão JDBC, pelo Hibernate e pelo Postgres. Quem precisa da hora injeta `java.time.Clock` (bean do `shared`); `Instant.now()`, `LocalDateTime.now()` e similares sem o Clock reprovam o `RelogioArquiteturaTest`. Nos testes, `RelogioMutavel` substitui o Clock e avança o tempo sem esperar.
