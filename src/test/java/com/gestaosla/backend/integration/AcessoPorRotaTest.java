@@ -38,6 +38,8 @@ class AcessoPorRotaTest {
     private static final String ID = UUID.randomUUID().toString();
     private static final List<Rota> SO_GESTOR = List.of(
             new Rota(HttpMethod.POST, "/api/usuarios"),
+            new Rota(HttpMethod.GET, "/api/usuarios"),
+            new Rota(HttpMethod.GET, "/api/tecnicos"),
             new Rota(HttpMethod.POST, "/api/clientes"),
             new Rota(HttpMethod.PUT, "/api/clientes/" + ID),
             new Rota(HttpMethod.GET, "/api/clientes"),
@@ -74,7 +76,7 @@ class AcessoPorRotaTest {
                 .andExpect(jsonPath("$.codigo").value("VALIDACAO"));
     }
 
-    // A regra do identidade é só para o POST: /me continua aberto a qualquer perfil autenticado.
+    // A regra do identidade é só para o caminho exato: /me continua aberto a qualquer perfil autenticado.
     @Test
     void shouldKeepCurrentUserOpenToAnyProfile() throws Exception {
         mvc.perform(request(HttpMethod.GET, "/api/usuarios/me").header(HttpHeaders.AUTHORIZATION, token(usuario("TECNICO"), "TECNICO")))

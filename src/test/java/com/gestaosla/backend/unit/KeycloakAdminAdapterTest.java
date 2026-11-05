@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +40,8 @@ class KeycloakAdminAdapterTest {
     private static final UUID ID = UUID.fromString("0199a000-0000-7000-8000-0000000000b1");
     private static final NovoUsuarioKeycloak NOVO = new NovoUsuarioKeycloak("tecnico", "tecnico@flowsla.local", "Ana", "Lima");
     private static final String ENCONTRADO = "[{\"id\":\"" + ID + "\",\"username\":\"tecnico\",\"enabled\":true}]";
+    private static final String CAMINHO_TOKEN = "/realms/flowsla/protocol/openid-connect/token";
+    private static final String TOKEN = "{\"access_token\":\"t\",\"expires_in\":300}";
     private static final String CONFLITO = "{\"errorMessage\":\"User exists with same username\"}";
 
     private HttpServer keycloak;
@@ -47,13 +50,26 @@ class KeycloakAdminAdapterTest {
     private final Set<UUID> comRegistroLocal = ConcurrentHashMap.newKeySet();
     private final AtomicReference<String> corpoDoPut = new AtomicReference<>();
 
+    // A primeira chamada da JVM carrega as classes do HttpClient e do Jackson (cerca de 200 ms, mais que o TIMEOUT): sem
+    // aquecer, o read-timeout fecha a resposta do primeiro teste, qualquer que seja ele.
+    @BeforeAll
+    static void aquecerJvm() throws IOException {
+        HttpServer servidor = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        servidor.createContext(CAMINHO_TOKEN, troca -> responder(troca, 200, TOKEN));
+        servidor.createContext("/admin/realms/flowsla/users", troca -> responder(troca, 200, "[]"));
+        servidor.start();
+        KeycloakAdminTestHelper.contexto("http://localhost:" + servidor.getAddress().getPort(), Duration.ofSeconds(30), Set.of())
+                .run(contexto -> assertThat(contexto.getBean(KeycloakAdminClient.class).buscarPorUsername("x")).isEmpty());
+        servidor.stop(0);
+    }
+
     @BeforeEach
     void subirKeycloakSimulado() throws IOException {
         keycloak = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         keycloak.setExecutor(Executors.newCachedThreadPool()); // atende em paralelo, como o Keycloak
-        keycloak.createContext("/realms/flowsla/protocol/openid-connect/token", troca -> {
+        keycloak.createContext(CAMINHO_TOKEN, troca -> {
             tokens.incrementAndGet();
-            responder(troca, 200, "{\"access_token\":\"t\",\"expires_in\":300}");
+            responder(troca, 200, TOKEN);
         });
         keycloak.start();
     }
@@ -90,6 +106,40 @@ class KeycloakAdminAdapterTest {
                 .isInstanceOf(IdpIndisponivelException.class));
 
         assertThat(chamadas("PUT")).isEqualTo(1);
+    }
+
+    // Cabeçalhos a tempo e corpo atrasado: o read-timeout fecha a resposta no meio da leitura. É Keycloak lento, não
+    // erro de configuração.
+    @Test
+    void shouldRetryAndReturn503WhenTimeoutHitsWhileReadingTheBody() {
+        keycloak.removeContext(CAMINHO_TOKEN);
+        keycloak.createContext(CAMINHO_TOKEN, troca -> {
+            tokens.incrementAndGet();
+            troca.getResponseHeaders().add("Content-Type", "application/json");
+            troca.sendResponseHeaders(200, TOKEN.length());
+            troca.getResponseBody().write(TOKEN.getBytes(StandardCharsets.UTF_8), 0, 1);
+            troca.getResponseBody().flush();
+            dormir(500);
+            troca.close();
+        });
+
+        comCliente(cliente -> assertThatThrownBy(() -> cliente.desabilitar(ID)).isInstanceOf(IdpIndisponivelException.class));
+
+        assertThat(tokens).hasValue(3);
+    }
+
+    // Resposta completa, mas inválida: não é lentidão, repetir não adianta.
+    @Test
+    void shouldNotTreatMalformedResponseAsUnavailable() {
+        keycloak.removeContext(CAMINHO_TOKEN);
+        keycloak.createContext(CAMINHO_TOKEN, troca -> {
+            tokens.incrementAndGet();
+            responder(troca, 200, "{");
+        });
+
+        comCliente(cliente -> assertThatThrownBy(() -> cliente.desabilitar(ID)).isInstanceOf(IllegalStateException.class));
+
+        assertThat(tokens).hasValue(1);
     }
 
     // Segredo errado ou permissão faltando é erro de configuração: 500, sem retry.

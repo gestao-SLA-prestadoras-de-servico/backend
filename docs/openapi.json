@@ -22,7 +22,7 @@
     "/api/clientes" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100); inclui inativos.",
-        "operationId" : "listar",
+        "operationId" : "listar_1",
         "parameters" : [ {
           "in" : "query",
           "name" : "razaoSocial",
@@ -232,7 +232,166 @@
         "tags" : [ "Cadastro" ]
       }
     },
+    "/api/tecnicos" : {
+      "get" : {
+        "description" : "Somente GESTOR. Paginado (20 por página, máximo 100), para escolher o técnico na atribuição e na inativação. Sem `ativos`, lista os ativos.",
+        "operationId" : "listar_2",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "ativos",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : true
+          }
+        }, {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "nome,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelTecnicoResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar técnicos",
+        "tags" : [ "Identidade" ]
+      }
+    },
     "/api/usuarios" : {
+      "get" : {
+        "description" : "Somente GESTOR. Paginado (20 por página, máximo 100); inclui inativos. O perfil é a cópia local, só para consulta (RN-130).",
+        "operationId" : "listar",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "perfil",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "CLIENTE", "TECNICO", "GESTOR" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "ativo",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "clienteId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "nome,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelUsuarioResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar usuários",
+        "tags" : [ "Identidade" ]
+      },
       "post" : {
         "description" : "Somente GESTOR. Cria a conta no Keycloak com o papel e o registro local; o usuário recebe por e-mail o link para definir a senha (o sistema nunca recebe senha).",
         "operationId" : "cadastrar",
@@ -687,6 +846,36 @@
         },
         "required" : [ "content", "page" ]
       },
+      "PagedModelTecnicoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TecnicoResponse"
+            }
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/PageMetadata"
+          }
+        },
+        "required" : [ "content", "page" ]
+      },
+      "PagedModelUsuarioResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/UsuarioResponse"
+            }
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/PageMetadata"
+          }
+        },
+        "required" : [ "content", "page" ]
+      },
       "Problema" : {
         "type" : "object",
         "description" : "Problem Details (RFC 9457) com o código estável do erro",
@@ -732,6 +921,22 @@
           }
         }
       },
+      "TecnicoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "chamadosNaoFinalizados" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "nome" : {
+            "type" : "string"
+          },
+          "sub" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "UsuarioCadastrado" : {
         "type" : "object",
         "properties" : {
@@ -765,6 +970,9 @@
       "UsuarioResponse" : {
         "type" : "object",
         "properties" : {
+          "ativo" : {
+            "type" : "boolean"
+          },
           "clienteId" : {
             "type" : "string",
             "format" : "uuid"

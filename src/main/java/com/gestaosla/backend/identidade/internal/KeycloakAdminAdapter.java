@@ -1,5 +1,6 @@
 package com.gestaosla.backend.identidade.internal;
 
+import java.io.IOException;
 import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
@@ -265,7 +266,10 @@ class KeycloakAdminAdapter implements KeycloakAdminClient {
     }
 
     private static RuntimeException traduzir(RestClientException e) {
-        if (e instanceof ResourceAccessException || e instanceof HttpServerErrorException) {
+        // O read-timeout do cliente também vale para o corpo: fechado no meio da leitura, chega como RestClientException
+        // genérica com uma IOException na origem.
+        if (e instanceof ResourceAccessException || e instanceof HttpServerErrorException
+                || e.getMostSpecificCause() instanceof IOException) {
             return new IdpIndisponivelException("Keycloak indisponível ou lento além do timeout.", e);
         }
         if (e instanceof HttpClientErrorException erro) {
