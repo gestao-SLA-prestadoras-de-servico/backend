@@ -28,7 +28,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.gestaosla.backend.TestcontainersConfiguration;
 import com.gestaosla.backend.identidade.api.KeycloakAdminClient;
 import com.gestaosla.backend.identidade.api.NovoUsuarioKeycloak;
-import com.gestaosla.backend.identidade.api.Papel;
+import com.gestaosla.backend.shared.api.Papel;
 import com.gestaosla.backend.identidade.api.UsuarioJaExisteException;
 import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 
@@ -58,6 +58,7 @@ class KeycloakAdminClientIntegrationTest {
             .withEnv("KEYCLOAK_ADMIN_CLIENT_SECRET", SEGREDO)
             .withEnv("KEYCLOAK_GESTOR_PASSWORD", "gestor-teste")
             .withEnv("FRONTEND_URL", "http://localhost:5173")
+            .withEnv("SWAGGER_URL", "http://localhost:8080")
             .withEnv("SMTP_HOST", "mailpit")
             .withEnv("SMTP_PORT", "1025")
             .withFileSystemBind(new File("infra/keycloak/realm-flowsla.json").getAbsolutePath(),

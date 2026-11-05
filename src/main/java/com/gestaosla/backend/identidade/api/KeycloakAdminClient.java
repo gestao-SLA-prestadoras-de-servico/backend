@@ -3,6 +3,8 @@ package com.gestaosla.backend.identidade.api;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.gestaosla.backend.shared.api.Papel;
+
 /**
  * Cliente da Admin API do Keycloak (RN-127, RN-131, RN-137).
  * Centraliza criação, alteração de papel, envio de e-mail de senha, desabilitação, reabilitação e remoção de contas.

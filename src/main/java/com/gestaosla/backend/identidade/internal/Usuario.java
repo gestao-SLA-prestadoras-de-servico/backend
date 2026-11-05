@@ -2,7 +2,7 @@ package com.gestaosla.backend.identidade.internal;
 
 import java.util.UUID;
 
-import com.gestaosla.backend.identidade.api.Papel;
+import com.gestaosla.backend.shared.api.Papel;
 import com.gestaosla.backend.shared.api.EntidadeBase;
 
 import jakarta.persistence.Entity;
@@ -35,4 +35,13 @@ class Usuario extends EntidadeBase {
 
     @Version
     private long version;
+
+    Usuario(UUID sub, String nome, String email, Papel perfil, UUID clienteId) {
+        this.sub = sub;
+        this.nome = nome;
+        this.email = email;
+        this.perfil = perfil;
+        this.clienteId = clienteId;
+        this.ativo = true;
+    }
 }

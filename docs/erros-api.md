@@ -19,7 +19,7 @@ Erro de validação traz também `erros`: `[{ "campo": "titulo", "mensagem": "mu
 
 | Situação | Status | `codigo` | Como gerar |
 | --- | --- | --- | --- |
-| Campo inválido (`@Valid`), JSON malformado, parâmetro com tipo errado | 400 | `VALIDACAO` | Automático |
+| Campo inválido (`@Valid`), JSON malformado, parâmetro com tipo errado, `?sort=` com campo inexistente | 400 | `VALIDACAO` | Automático |
 | Sem token; token inválido, expirado, de outro issuer ou sem `aud` `app-principal`; usuário inativo ou sem registro local | 401 | `NAO_AUTENTICADO` | Automático (filtro de segurança) |
 | Autenticado, mas sem o papel exigido | 403 | `ACESSO_NEGADO` | Automático (filtro ou `@PreAuthorize`) |
 | Recurso inexistente **ou de outro cliente** | 404 | `RECURSO_NAO_ENCONTRADO` | `throw new RecursoNaoEncontradoException()` |
@@ -52,3 +52,7 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | `CANCELAMENTO_NAO_PERMITIDO` | Cancelamento a partir de `RESOLVIDO` ou depois (RN-19) |
 | `REATRIBUICAO_NAO_PERMITIDA` | Reatribuição fora de `ATRIBUIDO`/`EM_ATENDIMENTO` (RN-20) |
 | `REABERTURA_NAO_PERMITIDA` | Reabertura fora de `RESOLVIDO` (RN-93, RN-99) |
+| `CLIENTE_OBRIGATORIO` | Usuário de perfil CLIENTE sem a empresa cliente (RF-09) |
+| `CLIENTE_INEXISTENTE` | Empresa cliente informada não existe (RF-09) |
+| `CLIENTE_INATIVO` | Empresa cliente inativa não aceita novo usuário (cadastro-01) |
+| `CLIENTE_NAO_PERMITIDO` | Técnico ou gestor informado com empresa cliente (RF-09) |

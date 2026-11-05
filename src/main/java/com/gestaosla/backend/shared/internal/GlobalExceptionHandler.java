@@ -6,6 +6,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.data.core.PropertyReferenceException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -42,6 +43,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler
     ResponseEntity<ProblemDetail> naoEncontrado(RecursoNaoEncontradoException ex) {
         return problema(HttpStatus.NOT_FOUND, CodigoErro.RECURSO_NAO_ENCONTRADO, ex.getMessage());
+    }
+
+    // ?sort= com campo que não existe na listagem paginada.
+    @ExceptionHandler
+    ResponseEntity<ProblemDetail> ordenacaoInvalida(PropertyReferenceException ex) {
+        return problema(HttpStatus.BAD_REQUEST, CodigoErro.VALIDACAO, "Campo de ordenação inválido: " + ex.getPropertyName() + ".");
     }
 
     // Cobre ObjectOptimisticLockingFailureException (RN-117).

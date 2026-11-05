@@ -58,6 +58,19 @@ O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModul
 
 Toda rota, exceto `/actuator/health`, exige `Authorization: Bearer <token do Keycloak>`. O token é validado quanto a assinatura, `iss` e `aud` (`app-principal`). Usuário inativo ou sem registro local recebe 401. O papel vem **sempre** do token (`realm_access.roles` → `ROLE_CLIENTE`/`ROLE_TECNICO`/`ROLE_GESTOR`), nunca da tabela `usuario` (RN-130). Config em `identidade.internal.SegurancaConfig` e `UsuarioCorrenteConverter`.
 
+Restringir um endpoint por papel tem **dois passos**, os dois obrigatórios:
+
+1. **Regra de rota do módulo** (responde 403 *antes* de o corpo ser lido e validado; sem ela, um não autorizado com corpo inválido receberia 400 e veria o formato do request):
+
+```java
+@Bean
+RegrasAcesso regrasRelatorio() {   // shared.api.RegrasAcesso, num @Configuration do próprio módulo
+    return rotas -> rotas.requestMatchers("/api/relatorios/**").hasRole("GESTOR");
+}
+```
+
+2. **`@PreAuthorize` no método**, como segunda barreira e documentação de quem pode chamar:
+
 ```java
 @GetMapping("/relatorios")
 @PreAuthorize("hasRole('GESTOR')")                         // papel errado → 403
@@ -65,6 +78,35 @@ List<Relatorio> listar(@AuthenticationPrincipal UsuarioCorrente usuario) { // su
 ```
 
 CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que passam pelo decoder real (ver `AutorizacaoTest`).
+
+## Documentação da API (OpenAPI)
+
+- **Contrato versionado:** `docs/openapi.json`, gerado do código pelo `OpenApiContratoTest` (`make integration-test`). Se um endpoint mudar, o teste reescreve o arquivo e falha: confira o diff e commite junto. O frontend gera o cliente HTTP a partir desse arquivo.
+- **Swagger UI (só dev, `API_DOCS_ENABLED=true`):** http://localhost:8080/swagger-ui.html. Em **Authorize**, o login abre o Keycloak (client `flowsla-swagger`, Authorization Code + PKCE); entre com `gestor`.
+- **Novo endpoint:** `@Tag(name = "<Módulo>")` no controller, `@Operation(summary = ...)` no método e `@ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)` para os erros específicos. 400, 401, 403 e 500 entram sozinhos.
+
+## Listagens paginadas
+
+Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400.
+
+## Edição concorrente
+
+Entidade editada por mais de um usuário devolve `version` no GET e exige essa `version` no PUT. Se outro usuário salvou antes, a resposta é 409 `CONFLITO_VERSAO` (RN-117), em vez de sobrescrever. Exemplo: `cadastro.internal.ClienteService.editar`.
+
+## Auditoria
+
+Operação sensível (RN-121) registra auditoria **na própria transação** (RN-120):
+
+```java
+@Transactional
+void reabrir(...) {
+    // ... altera o chamado
+    auditoria.registrar(Ator.usuario(usuario.sub(), usuario.papel()), OperacaoAuditada.REABERTURA,
+            EntidadeAuditada.CHAMADO, chamado.getId(), chamado.getId(), Map.of("de", "RESOLVIDO", "para", "ATRIBUIDO"));
+}
+```
+
+Fora de transação, `registrar` falha; rotinas agendadas usam `Ator.SISTEMA`. A tabela é imutável também no banco: trigger rejeita `UPDATE`, `TRUNCATE` e `DELETE` de registro com menos de 5 anos.
 
 ## Data e hora
 
@@ -118,6 +160,7 @@ Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam 
 | --- | --- | --- |
 | Gestor inicial | usuário `gestor` (`gestor@flowsla.local`), senha `KEYCLOAK_GESTOR_PASSWORD` | primeiro login; cadastra os demais usuários. O `sub` é fixo e o mesmo da `V2__cria_usuario.sql` |
 | Client do frontend | `flowsla-frontend` (público, Authorization Code + PKCE S256) | redirect em `FRONTEND_URL/*`; o token sai com `aud` `app-principal` e `ms-notificacoes` e com `realm_access.roles` |
+| Client do Swagger UI | `flowsla-swagger` (público, PKCE S256) | redirect só em `SWAGGER_URL/swagger-ui/oauth2-redirect.html`; mesmos `aud` do frontend |
 | Conta de serviço | client `app-principal-admin`, segredo `KEYCLOAK_ADMIN_CLIENT_SECRET` | Admin API; só `manage-users`, `view-users` e `view-realm` |
 | E-mails do Keycloak | SMTP `SMTP_HOST:SMTP_PORT` (Mailpit) | ver em http://localhost:8025 |
 
@@ -197,6 +240,7 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 ├── docs # Documentação das tasks do backend
 │   ├── convencoes-banco.md # Padrão de schema e migrações
 │   ├── erros-api.md # Formato dos erros e catálogo de códigos
+│   ├── openapi.json # Contrato da API, gerado pelo OpenApiContratoTest
 │   ├── tasks # O que cada task resolveu
 │   └── testes # Testes executados em cada task
 ├── Dockerfile
