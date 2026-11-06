@@ -29,6 +29,10 @@ CREATE TABLE exemplo (
 );
 ```
 
+### Exceção: registros imutáveis
+
+A trilha de auditoria (`auditoria`) **não** estende `EntidadeBase`: um registro que nunca é alterado não tem `updated_at`. Ela tem `id` (UUID v7) e `ocorrido_em` (`timestamptz`, vindo do `Clock`), que é a base dos 5 anos de retenção. Tabela imutável nova segue o mesmo modelo, com trigger que rejeita `UPDATE` (ver `V4__cria_auditoria.sql`).
+
 ## Datas
 
 - Toda data/hora é `timestamptz` no banco e `Instant` no Java. **Nunca** `timestamp` sem fuso nem `LocalDateTime`.

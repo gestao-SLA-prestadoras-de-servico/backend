@@ -36,7 +36,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gestaosla.backend.TestcontainersConfiguration;
-import com.gestaosla.backend.identidade.api.Papel;
+import com.gestaosla.backend.shared.api.Papel;
 import com.gestaosla.backend.identidade.api.UsuarioCorrente;
 
 @SpringBootTest
