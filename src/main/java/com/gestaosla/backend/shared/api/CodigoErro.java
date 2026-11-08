@@ -31,5 +31,9 @@ public enum CodigoErro {
     CLIENTE_OBRIGATORIO,        // RF-09: usuário de perfil CLIENTE precisa da empresa
     CLIENTE_INEXISTENTE,        // RF-09: empresa informada não existe
     CLIENTE_INATIVO,            // cadastro-01: cliente inativo não aceita novo usuário
-    CLIENTE_NAO_PERMITIDO       // RF-09: técnico e gestor não pertencem a empresa cliente
+    CLIENTE_NAO_PERMITIDO,      // RF-09: técnico e gestor não pertencem a empresa cliente
+    SUBSTITUTO_OBRIGATORIO,     // RN-133: técnico com chamados não finalizados exige substituto
+    SUBSTITUTO_INVALIDO,        // RN-133: substituto inexistente, inativo, não técnico ou o próprio inativado
+    AUTOINATIVACAO_NAO_PERMITIDA, // autenticação-06: gestor não inativa a si mesmo
+    ULTIMO_GESTOR_ATIVO         // autenticação-06: o sistema não pode ficar sem gestor ativo
 }

@@ -37,11 +37,11 @@ class TecnicoController {
         return new PagedModel<>(consulta.listar(Papel.TECNICO, ativos, null, pagina).map(TecnicoResponse::de));
     }
 
-    record TecnicoResponse(UUID sub, String nome, long chamadosNaoFinalizados) {
+    record TecnicoResponse(UUID id, UUID sub, String nome, long chamadosNaoFinalizados) {
 
         // A carga real entra quando o módulo chamado existir; até lá, 0.
         static TecnicoResponse de(Usuario u) {
-            return new TecnicoResponse(u.getSub(), u.getNome(), 0);
+            return new TecnicoResponse(u.getId(), u.getSub(), u.getNome(), 0);
         }
     }
 }

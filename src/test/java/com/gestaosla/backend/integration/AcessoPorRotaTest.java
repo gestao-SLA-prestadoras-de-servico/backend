@@ -39,6 +39,7 @@ class AcessoPorRotaTest {
     private static final List<Rota> SO_GESTOR = List.of(
             new Rota(HttpMethod.POST, "/api/usuarios"),
             new Rota(HttpMethod.GET, "/api/usuarios"),
+            new Rota(HttpMethod.POST, "/api/usuarios/" + ID + "/inativacao"),
             new Rota(HttpMethod.GET, "/api/tecnicos"),
             new Rota(HttpMethod.POST, "/api/clientes"),
             new Rota(HttpMethod.PUT, "/api/clientes/" + ID),
