@@ -87,7 +87,7 @@ CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que pa
 
 ## Listagens paginadas
 
-Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400.
+Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400. No serviço, passe a página por `shared.api.Paginas.comDesempate(pagina)`: ela acrescenta o `id` à ordenação, e sem isso itens empatados (dois usuários com o mesmo nome) podem repetir ou sumir entre páginas.
 
 ## Edição concorrente
 
@@ -107,6 +107,11 @@ void reabrir(...) {
 ```
 
 Fora de transação, `registrar` falha; rotinas agendadas usam `Ator.SISTEMA`. A tabela é imutável também no banco: trigger rejeita `UPDATE`, `TRUNCATE` e `DELETE` de registro com menos de 5 anos.
+
+## Dependência entre módulos e eventos
+
+- **Módulo que ainda não existe:** quem precisa dele declara uma porta no próprio `api` e a injeta como `Optional<Porta>`; o outro módulo a implementa depois, sem mudar quem a usa. Exemplo: `identidade.api.ChamadosDoTecnico`, implementada pela [chamado - 13].
+- **Ouvinte que chama serviço externo** (Keycloak, e-mail) depois do commit: `@Async` + `@TransactionalEventListener`, como em `identidade.internal.ClienteInativadoListener`. Síncrono, ele seguraria a conexão da transação que publicou o evento durante toda a chamada. O evento não é persistido: se a aplicação cair no meio, o que faltou não é refeito (o desligamento normal espera as tarefas terminarem).
 
 ## Data e hora
 

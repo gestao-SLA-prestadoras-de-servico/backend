@@ -3,6 +3,7 @@ package com.gestaosla.backend.integration;
 import static com.gestaosla.backend.TokenTeste.SUB_GESTOR;
 import static com.gestaosla.backend.TokenTeste.token;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -17,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -24,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -181,6 +184,19 @@ class InativacaoUsuarioTest {
         verify(chamados).transferir(eq(tecnico.sub()), eq(substituto.sub()), eq(Ator.usuario(UUID.fromString(SUB_GESTOR), Papel.GESTOR)));
         assertThat(ativo(tecnico)).isFalse();
         assertThat(ativo(substituto)).isTrue();
+        assertThat(jdbc.queryForObject("select dados ->> 'substitutoId' from auditoria where entidade_id = ?::uuid", String.class,
+                tecnico.id())).isEqualTo(substituto.id());
+    }
+
+    // Só técnico tem chamados: o substituto informado para outro perfil é validado, mas não recebe nada.
+    @Test
+    void shouldNotTransferTicketsWhenInactivatedUserIsNotTechnician() throws Exception {
+        Conta gestor = conta("GESTOR", null);
+        Conta substituto = conta("TECNICO", null);
+
+        inativar(gestor.id(), substituto.id()).andExpect(status().isNoContent());
+
+        verify(chamados, never()).transferir(any(), any(), any());
     }
 
     @Test
@@ -222,6 +238,21 @@ class InativacaoUsuarioTest {
         assertThat(habilitada(segundo)).isEqualTo(ativo(segundo));
     }
 
+    // Conta apagada à mão no Keycloak: o login já está bloqueado, então a inativação segue só no registro local.
+    @Test
+    void shouldInactivateLocallyWhenKeycloakAccountNoLongerExists() throws Exception {
+        UUID semConta = UUID.randomUUID();
+        String id = UUID.randomUUID().toString();
+        jdbc.update("""
+                insert into usuario (id, created_at, updated_at, sub, nome, email, perfil, ativo)
+                values (?::uuid, now(), now(), ?, 'Sem Conta', ?, 'TECNICO', true)""", id, semConta, semConta + "@x.local");
+
+        inativar(id, null).andExpect(status().isNoContent());
+
+        assertThat(jdbc.queryForObject("select ativo from usuario where id = ?::uuid", Boolean.class, id)).isFalse();
+        assertThat(jdbc.queryForObject("select count(*) from auditoria where entidade_id = ?::uuid", Long.class, id)).isEqualTo(1);
+    }
+
     @Test
     void shouldReturn404ForUnknownUser() throws Exception {
         inativar(UUID.randomUUID().toString(), null).andExpect(status().isNotFound());
@@ -236,16 +267,25 @@ class InativacaoUsuarioTest {
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString(), "$.id");
         Conta primeira = conta("CLIENTE", empresa);
         Conta segunda = conta("CLIENTE", empresa);
+        AtomicReference<Thread> threadDoKeycloak = new AtomicReference<>();
+        doAnswer(chamada -> {
+            threadDoKeycloak.set(Thread.currentThread());
+            return chamada.callRealMethod();
+        }).when(keycloakAdmin).desabilitar(any());
 
         mvc.perform(post("/api/clientes/" + empresa + "/inativacao").header(HttpHeaders.AUTHORIZATION, GESTOR))
                 .andExpect(status().isNoContent());
 
-        for (Conta conta : new Conta[] {primeira, segunda}) {
-            assertThat(habilitada(conta)).isFalse();
-            assertThat(ativo(conta)).isFalse();
-            assertThat(jdbc.queryForObject("select count(*) from auditoria where entidade_id = ?::uuid and ator_sub is null",
-                    Long.class, conta.id())).isEqualTo(1);
-        }
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            for (Conta conta : new Conta[] {primeira, segunda}) {
+                assertThat(ativo(conta)).isFalse();
+                assertThat(habilitada(conta)).isFalse();
+                assertThat(jdbc.queryForObject("select count(*) from auditoria where entidade_id = ?::uuid and ator_sub is null",
+                        Long.class, conta.id())).isEqualTo(1);
+            }
+        });
+        // Fora da thread da requisição (o MockMvc roda na do teste): a conexão de quem inativou o cliente não espera o Keycloak.
+        assertThat(threadDoKeycloak.get()).isNotNull().isNotSameAs(Thread.currentThread());
     }
 
     private ResultActions inativar(String id, String substitutoId) throws Exception {

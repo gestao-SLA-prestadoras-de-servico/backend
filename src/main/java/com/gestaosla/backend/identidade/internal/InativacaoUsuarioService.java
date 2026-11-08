@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.gestaosla.backend.auditoria.api.AuditoriaService;
@@ -46,8 +45,6 @@ class InativacaoUsuarioService {
         this.auditoria = auditoria;
         this.chamados = chamados;
         this.transacao = new TransactionTemplate(transacoes);
-        // O ouvinte de ClienteInativado roda depois do commit: sem isto, entraria na transação encerrada e nada gravaria.
-        this.transacao.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /** Idempotente: usuário já inativo não repete a chamada ao Keycloak nem a auditoria. */
@@ -61,12 +58,25 @@ class InativacaoUsuarioService {
         }
         validar(usuario, substitutoId);
 
-        keycloak.desabilitar(usuario.getSub());
+        boolean desabilitada = desabilitar(usuario.getSub());
         try {
             transacao.executeWithoutResult(t -> gravar(id, substitutoId, ator));
         } catch (RuntimeException falha) {
-            reabilitar(id, usuario.getSub(), falha);
+            if (desabilitada) {
+                reabilitar(id, usuario.getSub(), falha);
+            }
             throw falha;
+        }
+    }
+
+    // Conta apagada à mão no Keycloak: o login já está bloqueado, então a inativação segue só no registro local.
+    private boolean desabilitar(UUID sub) {
+        try {
+            keycloak.desabilitar(sub);
+            return true;
+        } catch (RecursoNaoEncontradoException semConta) {
+            log.warn("Conta {} não existe no Keycloak; inativando só o registro local.", sub);
+            return false;
         }
     }
 
