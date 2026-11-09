@@ -116,12 +116,25 @@ Evento destinado ao RabbitMQ é gravado na tabela `outbox_eventos` **na própria
 @Transactional
 void atribuir(...) {
     // ... altera o chamado
-    outbox.registrar(new EventoSaida(null, "ATRIBUICAO", "notificacoes", List.of("notificacoes.interna"),
+    outbox.registrar(new EventoSaida(null, "ATRIBUICAO", "notificacoes", List.of("interna"),
             Map.of("chamadoId", chamado.getId(), "titulo", chamado.getTitulo())));
 }
 ```
 
-Fora de transação, `registrar` falha. `eventoId` nulo gera um novo; informe um quando ele precisa ser determinístico (violação de SLA, RN-54). Um `eventoId` já gravado é ignorado, sem erro. Cada routing key vira um registro com `eventoId` próprio, acrescentado ao payload. A publicação é da [outbox - 02].
+Fora de transação, `registrar` falha. `eventoId` nulo gera um novo; informe um quando ele precisa ser determinístico (violação de SLA, RN-54). Um `eventoId` já gravado é ignorado, sem erro. Cada routing key vira um registro com `eventoId` próprio, acrescentado ao payload. Exchanges e routing keys são as da seção [Topologia do RabbitMQ](#topologia-do-rabbitmq).
+
+## Topologia do RabbitMQ
+
+Exchanges, filas e DLQs ficam em `infra/rabbitmq/topologia.json`, **fonte única** compartilhada com o ms-notificacoes. O `rabbitmq-init` junta esse arquivo com o usuário de `.envs/` no `definitions.json` (ignorado pelo git, porque leva o hash da senha), e o broker o carrega no boot. Assim as filas existem antes de qualquer serviço subir, e nada publicado se perde por falta de fila.
+
+| Exchange (direct) | Routing key | Fila | DLQ (via exchange `.dlx`) |
+| --- | --- | --- | --- |
+| `notificacoes` | `email` | `notificacoes.email` | `notificacoes.email.dlq` (expira em 7 dias, RN-57) |
+| `notificacoes` | `interna` | `notificacoes.interna` | `notificacoes.interna.dlq` (expira em 7 dias, RN-57) |
+| `evidencias` | `processamento` | `evidencias.processamento` | `evidencias.processamento.dlq` (sem expiração) |
+
+- **Os serviços não declaram filas, exchanges nem bindings.** No backend, o `TopologiaRabbitArquiteturaTest` reprova qualquer `Declarable` (`Queue`, `Exchange`, `Binding`) ou builder: o `RabbitAdmin` os declararia com argumentos próprios.
+- **Mudança na topologia exige aprovação das duas equipes** (backend e ms-notificacoes). Mudar o argumento de uma fila existente no arquivo **não tem efeito**: a importação termina sem erro e a fila fica com o argumento antigo. A fila precisa ser apagada e recriada (ver `docs/tasks/outbox-02-topologia-rabbitmq.md`).
 
 ## Dependência entre módulos e eventos
 
@@ -143,7 +156,7 @@ Todo erro sai como Problem Details (RFC 9457) com o campo `codigo`, tratado no `
 > Requisitos:
 >
 > - Docker
-> - Docker Compose 2.30 ou mais recente (usa `post_start`)
+> - Docker Compose 2.30 ou mais recente
 
 O projeto está dividido em três ambientes (desenvolvimento, testes e produção), abaixo estão as informações de como rodar cada um deles:
 
@@ -167,7 +180,7 @@ O ambiente sobe o backend e as dependências dele. O backend só inicia depois q
 | ---------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
 | Backend    | http://localhost:8080                          | `/actuator/health`                                                         |
 | PostgreSQL | só rede interna (`postgres:5432`)              | bancos `app_principal`, `notificacoes` e `keycloak`, um usuário por banco (`infra/postgres/init.sql`) |
-| RabbitMQ   | http://localhost:15672 (management)            | topologia de `infra/rabbitmq/definitions.json`                             |
+| RabbitMQ   | http://localhost:15672 (management)            | topologia de `infra/rabbitmq/topologia.json`                               |
 | MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
 | Keycloak   | http://localhost:8081                          | console admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`; realm `flowsla` importado de `infra/keycloak/realm-flowsla.json` |
 | Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
@@ -280,7 +293,9 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 │   ├── postgres
 │   │   └── init.sql # Bancos e usuários do PostgreSQL compartilhado
 │   ├── rabbitmq
-│   │   ├── definitions.json # Topologia do RabbitMQ
+│   │   ├── generate_definitions.py # Gera o definitions.json (usuário de .envs + topologia) a cada subida
+│   │   ├── rabbitmq.conf # Carrega o definitions.json no boot
+│   │   ├── topologia.json # Exchanges, filas e DLQs; fonte única com o ms-notificacoes
 │   │   └── enabled_plugins
 │   ├── docker-compose.dev.yml
 │   ├── docker-compose.prod.yml

@@ -97,10 +97,10 @@ Atualize junto com a task o que ela afetar:
 ## Git
 
 - A branch padrão é uma por módulo (`feat/plataforma`, `feat/auditoria`, `feat/cadastro`). As tasks recentes usam branches empilhadas por pedido do usuário, como `feat/autenticacao-06` a partir de `feat/autenticacao-05`. Se a branch da task não estiver clara, pergunte.
-- Quando o usuário pedir a mensagem de commit, **apenas mostre o texto**. O formato é o assunto em inglês, uma linha em branco e a lista em português. Sem a linha em branco, o git junta tudo no assunto:
+- Quando o usuário pedir a mensagem de commit, **apenas mostre o texto**. A mensagem é toda em português: o assunto, uma linha em branco e a lista. Só o prefixo (`feat:`, `fix:`) fica como está. Sem a linha em branco, o git junta tudo no assunto:
 
 ```text
-feat: <descrição em inglês> task: [modulo - nn] <título da task>
+feat: <descrição em português> task: [modulo - nn] <título da task>
 
 - <mudança>
 - <mudança>

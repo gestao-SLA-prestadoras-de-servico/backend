@@ -41,7 +41,7 @@ class OutboxTest {
 
     @Test
     void shouldFailOutsideTransaction() {
-        assertThatThrownBy(() -> outbox.registrar(evento(UUID.randomUUID(), "notificacoes.interna")))
+        assertThatThrownBy(() -> outbox.registrar(evento(UUID.randomUUID(), "interna")))
                 .isInstanceOf(IllegalTransactionStateException.class);
     }
 
@@ -51,7 +51,7 @@ class OutboxTest {
         relogio.definir(agora);
         UUID eventoId = UUID.randomUUID();
 
-        transacao.executeWithoutResult(t -> outbox.registrar(evento(eventoId, "notificacoes.interna")));
+        transacao.executeWithoutResult(t -> outbox.registrar(evento(eventoId, "interna")));
 
         Map<String, Object> linha = jdbc.queryForMap("""
                 select tipo, exchange, routing_key, criado_em, publicado_em, tentativas, ultimo_erro,
@@ -59,7 +59,7 @@ class OutboxTest {
                 from outbox_eventos where evento_id = ?""", eventoId);
         assertThat(((java.sql.Timestamp) linha.get("criado_em")).toInstant()).isEqualTo(agora);
         assertThat(linha).containsEntry("tipo", "ATRIBUICAO").containsEntry("exchange", "notificacoes")
-                .containsEntry("routing_key", "notificacoes.interna").containsEntry("publicado_em", null)
+                .containsEntry("routing_key", "interna").containsEntry("publicado_em", null)
                 .containsEntry("tentativas", 0).containsEntry("ultimo_erro", null)
                 .containsEntry("payload_evento_id", eventoId.toString()).containsEntry("titulo", "Impressora parada");
     }
@@ -69,7 +69,7 @@ class OutboxTest {
         UUID eventoId = UUID.randomUUID();
 
         transacao.executeWithoutResult(t -> {
-            outbox.registrar(evento(eventoId, "notificacoes.interna"));
+            outbox.registrar(evento(eventoId, "interna"));
             t.setRollbackOnly();
         });
 
@@ -79,10 +79,10 @@ class OutboxTest {
     @Test
     void shouldIgnoreExistingEventIdWithoutErrorOrDuplicate() {
         UUID eventoId = UUID.randomUUID();
-        transacao.executeWithoutResult(t -> outbox.registrar(evento(eventoId, "notificacoes.interna")));
+        transacao.executeWithoutResult(t -> outbox.registrar(evento(eventoId, "interna")));
 
         transacao.executeWithoutResult(t -> outbox.registrar(new EventoSaida(eventoId, "ATRIBUICAO", "notificacoes",
-                List.of("notificacoes.interna"), Map.of("titulo", "Outro título"))));
+                List.of("interna"), Map.of("titulo", "Outro título"))));
 
         assertThat(contar(eventoId)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select payload ->> 'titulo' from outbox_eventos where evento_id = ?",
@@ -93,7 +93,7 @@ class OutboxTest {
     void shouldStoreOneRecordPerChannelWithDistinctDeterministicIds() {
         UUID eventoId = UUID.randomUUID();
         EventoSaida doisCanais = new EventoSaida(eventoId, "ATRIBUICAO", "notificacoes",
-                List.of("notificacoes.email", "notificacoes.interna"), Map.of("titulo", "Impressora parada"));
+                List.of("email", "interna"), Map.of("titulo", "Impressora parada"));
 
         transacao.executeWithoutResult(t -> outbox.registrar(doisCanais));
         // Repetir o mesmo evento (ex.: violação detectada de novo, RN-54) não cria novas linhas.
@@ -103,9 +103,9 @@ class OutboxTest {
         List<Map<String, Object>> doEvento = jdbc.queryForList("""
                 select evento_id, routing_key, payload ->> 'eventoId' as payload_evento_id from outbox_eventos
                 where evento_id in (?, ?) order by routing_key""",
-                derivado(eventoId, "notificacoes.email"), derivado(eventoId, "notificacoes.interna"));
+                derivado(eventoId, "email"), derivado(eventoId, "interna"));
         assertThat(doEvento).extracting(l -> l.get("routing_key"))
-                .containsExactly("notificacoes.email", "notificacoes.interna");
+                .containsExactly("email", "interna");
         assertThat(doEvento)
                 .allSatisfy(l -> assertThat(l.get("payload_evento_id")).isEqualTo(l.get("evento_id").toString()));
         assertThat(doEvento.get(0).get("evento_id")).isNotEqualTo(doEvento.get(1).get("evento_id"));

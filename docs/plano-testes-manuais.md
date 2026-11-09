@@ -188,6 +188,18 @@ Faça logado como gestor. Cadastre antes um técnico descartável e anote o `id`
 | 7A.6 | psql: `select ativo from usuario where id = '<TD>';` e `select operacao, dados from auditoria where entidade_id = '<TD>';` | `ativo = f`; uma linha `INATIVACAO_USUARIO` |
 | 7A.7 | Inativar um cliente com usuários e repetir o 7A.5 e o 7A.6 para um deles | Conta desabilitada; auditoria com `ator_sub` nulo |
 
+## 7B. Topologia do RabbitMQ ([outbox - 02])
+
+Management em http://localhost:15672, com `RABBITMQ_USER`/`RABBITMQ_PASSWORD` de `.envs/.env.dev`. O ms-notificacoes não precisa estar rodando.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7B.1 | **Exchanges** | `notificacoes`, `notificacoes.dlx`, `evidencias` e `evidencias.dlx`, todas `direct` |
+| 7B.2 | **Queues and Streams** | As 6 filas; as DLQs de notificação com `x-message-ttl` 604800000; as 3 filas principais com `x-dead-letter-exchange` |
+| 7B.3 | Exchange `notificacoes` → **Publish message**, routing key `email`, *Delivery mode* persistente | `Message published.`; `notificacoes.email` com 1 mensagem |
+| 7B.4 | `docker compose ... restart rabbitmq` e conferir a fila | A mensagem continua lá |
+| 7B.5 | Fila `notificacoes.email` → **Purge Messages** | Fila vazia (limpeza do teste) |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |
