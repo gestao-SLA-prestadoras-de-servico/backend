@@ -52,4 +52,4 @@ O app-principal precisa aceitar apenas requisições com token válido do Keyclo
 
 ## Como verificar
 
-Ver `docs/testes/autenticacao-02-validar-jwt-restringir-papel.md`.
+Ver `docs/testes/autenticacao/autenticacao-02-validar-jwt-restringir-papel.md`.

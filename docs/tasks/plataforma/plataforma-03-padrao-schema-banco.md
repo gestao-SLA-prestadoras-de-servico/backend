@@ -46,4 +46,4 @@ Remova `JPA_DDL_AUTO` do seu `.envs/.env.*` local (não é mais lido). O Flyway 
 
 ## Como verificar
 
-Ver `docs/testes/plataforma-03-padrao-schema-banco.md`.
+Ver `docs/testes/plataforma/plataforma-03-padrao-schema-banco.md`.

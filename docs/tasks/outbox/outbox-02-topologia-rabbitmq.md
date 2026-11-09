@@ -46,4 +46,4 @@ Antes desta task, o `definitions.json` era gerado pelo `rabbitmq-init` (`generat
 
 ## Como verificar
 
-Ver `docs/testes/outbox-02-topologia-rabbitmq.md` e a seção 7B de `docs/plano-testes-manuais.md`.
+Ver `docs/testes/outbox/outbox-02-topologia-rabbitmq.md` e a seção 7B de `docs/plano-testes-manuais.md`.

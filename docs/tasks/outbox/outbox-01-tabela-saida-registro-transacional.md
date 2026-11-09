@@ -42,4 +42,4 @@ Publicar no RabbitMQ direto da operação de negócio pode perder eventos se o b
 
 ## Como verificar
 
-Ver `docs/testes/outbox-01-tabela-saida-registro-transacional.md`.
+Ver `docs/testes/outbox/outbox-01-tabela-saida-registro-transacional.md`.

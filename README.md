@@ -134,7 +134,7 @@ Exchanges, filas e DLQs ficam em `infra/rabbitmq/topologia.json`, **fonte única
 | `evidencias` | `processamento` | `evidencias.processamento` | `evidencias.processamento.dlq` (sem expiração) |
 
 - **Os serviços não declaram filas, exchanges nem bindings.** No backend, o `TopologiaRabbitArquiteturaTest` reprova qualquer `Declarable` (`Queue`, `Exchange`, `Binding`) ou builder: o `RabbitAdmin` os declararia com argumentos próprios.
-- **Mudança na topologia exige aprovação das duas equipes** (backend e ms-notificacoes). Mudar o argumento de uma fila existente no arquivo **não tem efeito**: a importação termina sem erro e a fila fica com o argumento antigo. A fila precisa ser apagada e recriada (ver `docs/tasks/outbox-02-topologia-rabbitmq.md`).
+- **Mudança na topologia exige aprovação das duas equipes** (backend e ms-notificacoes). Mudar o argumento de uma fila existente no arquivo **não tem efeito**: a importação termina sem erro e a fila fica com o argumento antigo. A fila precisa ser apagada e recriada (ver `docs/tasks/outbox/outbox-02-topologia-rabbitmq.md`).
 
 ## Dependência entre módulos e eventos
 
@@ -259,7 +259,7 @@ make integration-test
 
 ## Documentação por task
 
-Toda task entregue gera dois arquivos em `docs/`, com o mesmo nome (`<modulo>-<nn>-<descricao>.md`, ex.: `plataforma-03-padrao-schema-banco.md`):
+Toda task entregue gera dois arquivos em `docs/`, com o mesmo nome, numa pasta por módulo (`<modulo>/<modulo>-<nn>-<descricao>.md`, ex.: `plataforma/plataforma-03-padrao-schema-banco.md`):
 
 - `docs/tasks/`: contexto, tabela critério de aceite × solução, passos técnicos realizados, decisões e cuidados ao atualizar um ambiente existente.
 - `docs/testes/`: data e branch, tabela com o que foi testado, como, resultado esperado, resultado obtido e status, e o que ficou sem verificar.
@@ -274,8 +274,8 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 │   ├── convencoes-banco.md # Padrão de schema e migrações
 │   ├── erros-api.md # Formato dos erros e catálogo de códigos
 │   ├── openapi.json # Contrato da API, gerado pelo OpenApiContratoTest
-│   ├── tasks # O que cada task resolveu
-│   └── testes # Testes executados em cada task
+│   ├── tasks # O que cada task resolveu, uma pasta por módulo
+│   └── testes # Testes executados em cada task, uma pasta por módulo
 ├── Dockerfile
 ├── .dockerignore
 ├── .envs # Variáveis de ambiente do projeto
