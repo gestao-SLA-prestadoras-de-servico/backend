@@ -123,6 +123,10 @@ void atribuir(...) {
 
 Fora de transação, `registrar` falha. `eventoId` nulo gera um novo; informe um quando ele precisa ser determinístico (violação de SLA, RN-54). Um `eventoId` já gravado é ignorado, sem erro. Cada routing key vira um registro com `eventoId` próprio, acrescentado ao payload. Exchanges e routing keys são as da seção [Topologia do RabbitMQ](#topologia-do-rabbitmq).
 
+O `PublicadorOutbox` (a cada `app.outbox.publicador.intervalo`, 5 s) lê os pendentes em ordem de `criado_em`, em lotes de 100, e publica cada um com confirmação do broker (`publisher-confirm-type=correlated`) e `mandatory=true`. Só marca `publicado_em` depois do confirm. Broker fora, devolução por falta de fila ou confirm que não chega em `espera-confirmacao` contam como falha: o evento fica pendente com `tentativas` e `ultimo_erro`, e o ciclo para. A mensagem sai com `messageId` = `eventoId`, `type` = tipo, JSON e entrega persistente. Entrega ao menos uma vez (RN-115): consumidor descarta repetições pelo `messageId`.
+
+Métricas (RF-64): `outbox_eventos_pendentes` e `outbox_pendente_mais_antigo_idade_seconds`, lidas do banco a cada coleta.
+
 ## Topologia do RabbitMQ
 
 Exchanges, filas e DLQs ficam em `infra/rabbitmq/topologia.json`, **fonte única** compartilhada com o ms-notificacoes. O `rabbitmq-init` junta esse arquivo com o usuário de `.envs/` no `definitions.json` (ignorado pelo git, porque leva o hash da senha), e o broker o carrega no boot. Assim as filas existem antes de qualquer serviço subir, e nada publicado se perde por falta de fila.

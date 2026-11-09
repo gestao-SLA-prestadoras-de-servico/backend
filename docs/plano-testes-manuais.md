@@ -200,6 +200,25 @@ Management em http://localhost:15672, com `RABBITMQ_USER`/`RABBITMQ_PASSWORD` de
 | 7B.4 | `docker compose ... restart rabbitmq` e conferir a fila | A mensagem continua lá |
 | 7B.5 | Fila `notificacoes.email` → **Purge Messages** | Fila vazia (limpeza do teste) |
 
+## 7C. Publicador da outbox ([outbox - 03])
+
+Nenhum módulo grava eventos ainda; o evento entra direto pelo psql (`<ID>` = um UUID qualquer):
+
+```sql
+insert into outbox_eventos (id, evento_id, tipo, exchange, routing_key, payload, criado_em)
+values (gen_random_uuid(), '<ID>', 'ATRIBUICAO', 'notificacoes', 'interna', '{"eventoId":"<ID>"}', now());
+```
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7C.1 | Inserir o evento e esperar 5 s | `publicado_em` preenchido; `notificacoes.interna` com 1 mensagem, `message_id` = `<ID>` |
+| 7C.2 | `docker compose ... stop rabbitmq`, inserir outro evento (routing key `email`) e esperar 10 s | `publicado_em` nulo, `tentativas` ≥ 1, `ultimo_erro` preenchido |
+| 7C.3 | `docker compose ... start rabbitmq` e esperar | O evento é publicado; `notificacoes.email` com 1 mensagem |
+| 7C.4 | Inserir um evento com routing key `inexistente` | Fica pendente com `ultimo_erro` "Sem fila de destino"; os eventos criados depois dele também ficam pendentes. Apague-o (`delete from outbox_eventos where evento_id = '<ID>'`) para o publicador seguir |
+| 7C.5 | Esvaziar as filas usadas (como no 7B.5) | Filas vazias |
+
+As métricas `outbox_*` estão em `/actuator/prometheus`, que hoje exige token.
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |

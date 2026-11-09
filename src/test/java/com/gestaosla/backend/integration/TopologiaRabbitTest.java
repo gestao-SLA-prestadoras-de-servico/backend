@@ -20,29 +20,19 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.web.client.RestClient;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.MountableFile;
+
+import com.gestaosla.backend.BrokerTeste;
 
 /**
  * Topologia de infra/rabbitmq/topologia.json num broker real, sem nenhum consumidor nem declaração da aplicação
- * (outbox-02). Mesma imagem do infra/docker-compose.yml.
+ * (outbox-02).
  */
 class TopologiaRabbitTest {
 
-    private static final String USUARIO = "teste";
     private static final long SETE_DIAS_MS = 7L * 24 * 60 * 60 * 1000;
     private static final List<String> FILAS = List.of("notificacoes.email", "notificacoes.interna",
             "notificacoes.email.dlq", "notificacoes.interna.dlq", "evidencias.processamento",
             "evidencias.processamento.dlq");
-
-    @SuppressWarnings("resource")
-    private static final GenericContainer<?> broker = new GenericContainer<>("rabbitmq:4.1-management-alpine")
-            .withEnv("RABBITMQ_DEFAULT_USER", USUARIO)
-            .withEnv("RABBITMQ_DEFAULT_PASS", USUARIO)
-            .withCopyFileToContainer(MountableFile.forHostPath("infra/rabbitmq/topologia.json"), "/tmp/topologia.json")
-            .withExposedPorts(5672, 15672)
-            .waitingFor(Wait.forLogMessage(".*Server startup complete.*", 1));
 
     private static CachingConnectionFactory conexao;
     private static RabbitTemplate rabbit;
@@ -51,23 +41,20 @@ class TopologiaRabbitTest {
     private static String baseGerenciamento;
 
     @BeforeAll
-    static void subirBroker() throws Exception {
-        broker.start();
-        var importacao = broker.execInContainer("rabbitmqctl", "import_definitions", "/tmp/topologia.json");
-        assertThat(importacao.getExitCode()).as(importacao.getStderr()).isZero();
-        conexao = new CachingConnectionFactory(broker.getHost(), broker.getMappedPort(5672));
-        conexao.setUsername(USUARIO);
-        conexao.setPassword(USUARIO);
+    static void conectar() {
+        conexao = new CachingConnectionFactory(BrokerTeste.CONTAINER.getHost(), BrokerTeste.portaAmqp());
+        conexao.setUsername(BrokerTeste.USUARIO);
+        conexao.setPassword(BrokerTeste.USUARIO);
         rabbit = new RabbitTemplate(conexao);
         admin = new RabbitAdmin(conexao);
-        baseGerenciamento = "http://" + broker.getHost() + ":" + broker.getMappedPort(15672);
-        gerenciamento = RestClient.builder().defaultHeaders(h -> h.setBasicAuth(USUARIO, USUARIO)).build();
+        baseGerenciamento = BrokerTeste.urlGerenciamento();
+        gerenciamento = RestClient.builder()
+                .defaultHeaders(h -> h.setBasicAuth(BrokerTeste.USUARIO, BrokerTeste.USUARIO)).build();
     }
 
     @AfterAll
-    static void derrubarBroker() {
+    static void desconectar() {
         conexao.destroy();
-        broker.stop();
     }
 
     @BeforeEach
