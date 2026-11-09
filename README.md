@@ -127,6 +127,19 @@ O `PublicadorOutbox` (a cada `app.outbox.publicador.intervalo`, 5 s) lê os pend
 
 Métricas (RF-64): `outbox_eventos_pendentes` e `outbox_pendente_mais_antigo_idade_seconds`, lidas do banco a cada coleta.
 
+### Notificações
+
+Notificação não usa `EventoSaida` direto: cada tipo é um record de `outbox.api.EventoNotificacao`, e os destinatários saem só do `MontadorDestinatarios` (sub de técnico ou gestor no canal interno, e-mail de contato do cliente no e-mail, RN-41):
+
+```java
+outbox.registrar(new EventoNotificacao.Atribuicao(new Chamado(chamado.getId(), chamado.getNumero()), chamado.getTitulo(),
+        destinatarios.internos(List.of(tecnicoSub))));
+// Violação: eventoId determinístico (RN-54).
+outbox.registrar(new EventoNotificacao.Violacao(..., destinatarios.internos(subs), Relogio.RESOLUCAO), eventoId);
+```
+
+O tipo define o canal (routing key `interna` ou `email`). Os JSON Schemas de cada tipo ficam em `contratos/notificacoes/`, compartilhados com o ms-notificacoes. São gerados dos records pelo `ContratoNotificacaoTest`, que os reescreve e falha quando o record muda: confira o diff e combine a mudança com a equipe do ms-notificacoes antes de commitar.
+
 ## Topologia do RabbitMQ
 
 Exchanges, filas e DLQs ficam em `infra/rabbitmq/topologia.json`, **fonte única** compartilhada com o ms-notificacoes. O `rabbitmq-init` junta esse arquivo com o usuário de `.envs/` no `definitions.json` (ignorado pelo git, porque leva o hash da senha), e o broker o carrega no boot. Assim as filas existem antes de qualquer serviço subir, e nada publicado se perde por falta de fila.
@@ -274,6 +287,8 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 
 ```bash
 .
+├── contratos
+│   └── notificacoes # JSON Schemas das mensagens de notificação, gerados pelo ContratoNotificacaoTest
 ├── docs # Documentação das tasks do backend
 │   ├── convencoes-banco.md # Padrão de schema e migrações
 │   ├── erros-api.md # Formato dos erros e catálogo de códigos

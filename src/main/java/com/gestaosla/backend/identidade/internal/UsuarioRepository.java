@@ -1,5 +1,6 @@
 package com.gestaosla.backend.identidade.internal;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,6 +23,8 @@ interface UsuarioRepository extends JpaRepository<Usuario, UUID>, JpaSpecificati
     boolean existsByEmailIgnoreCase(String email);
 
     List<Usuario> findByPerfilAndAtivoTrue(Papel perfil);
+
+    List<Usuario> findBySubIn(Collection<UUID> subs);
 
     List<Usuario> findByClienteIdAndAtivoTrue(UUID clienteId);
 

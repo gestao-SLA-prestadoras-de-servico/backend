@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -13,10 +14,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.gestaosla.backend.outbox.api.EventoNotificacao;
 import com.gestaosla.backend.outbox.api.EventoSaida;
 import com.gestaosla.backend.outbox.api.OutboxService;
 
 import lombok.RequiredArgsConstructor;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
 @Service
@@ -26,6 +29,22 @@ class OutboxServiceImpl implements OutboxService {
     private final JdbcClient jdbc;
     private final JsonMapper json;
     private final Clock clock;
+
+    private static final TypeReference<Map<String, Object>> MAPA = new TypeReference<>() {
+    };
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void registrar(EventoNotificacao evento) {
+        registrar(evento, null);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void registrar(EventoNotificacao evento, UUID eventoId) {
+        registrar(new EventoSaida(eventoId, evento.tipo().name(), "notificacoes",
+                List.of(evento.tipo().canal().routingKey()), json.convertValue(evento, MAPA)));
+    }
 
     // MANDATORY: nunca abre transação própria; sem a de quem chama, falha (RN-113).
     // JDBC em vez de entidade JPA: o ON CONFLICT DO NOTHING com Hibernate exigiria @SQLInsert sem checar linhas.

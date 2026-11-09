@@ -30,6 +30,7 @@
 		<java.version>21</java.version>
 		<resilience4j.version>2.4.0</resilience4j.version>
 		<springdoc.version>3.2.0</springdoc.version>
+		<victools.version>5.0.0</victools.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -162,6 +163,25 @@
 				<artifactId>testcontainers-junit-jupiter</artifactId>
 				<version>2.0.5</version>
 				<scope>test</scope>
+		</dependency>
+		<!-- Contratos das mensagens de notificação (outbox-04): gera os JSON Schemas a partir dos records e valida os payloads. -->
+		<dependency>
+			<groupId>com.github.victools</groupId>
+			<artifactId>jsonschema-generator</artifactId>
+			<version>${victools.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.github.victools</groupId>
+			<artifactId>jsonschema-module-jackson</artifactId>
+			<version>${victools.version}</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.networknt</groupId>
+			<artifactId>json-schema-validator</artifactId>
+			<version>3.0.8</version>
+			<scope>test</scope>
 		</dependency>
 	</dependencies>
 

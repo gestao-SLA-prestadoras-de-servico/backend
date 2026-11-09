@@ -1,7 +1,10 @@
 package com.gestaosla.backend.identidade.internal;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -40,5 +43,11 @@ class UsuarioConsultaService implements UsuarioConsulta {
     @Transactional(readOnly = true)
     public List<UUID> listarGestoresAtivos() {
         return usuarios.findByPerfilAndAtivoTrue(Papel.GESTOR).stream().map(Usuario::getSub).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<UUID, Papel> perfis(Collection<UUID> subs) {
+        return usuarios.findBySubIn(subs).stream().collect(Collectors.toMap(Usuario::getSub, Usuario::getPerfil));
     }
 }
