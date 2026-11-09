@@ -108,6 +108,21 @@ void reabrir(...) {
 
 Fora de transação, `registrar` falha; rotinas agendadas usam `Ator.SISTEMA`. A tabela é imutável também no banco: trigger rejeita `UPDATE`, `TRUNCATE` e `DELETE` de registro com menos de 5 anos.
 
+## Eventos para a mensageria (outbox)
+
+Evento destinado ao RabbitMQ é gravado na tabela `outbox_eventos` **na própria transação** da operação (RN-113), nunca publicado direto:
+
+```java
+@Transactional
+void atribuir(...) {
+    // ... altera o chamado
+    outbox.registrar(new EventoSaida(null, "ATRIBUICAO", "notificacoes", List.of("notificacoes.interna"),
+            Map.of("chamadoId", chamado.getId(), "titulo", chamado.getTitulo())));
+}
+```
+
+Fora de transação, `registrar` falha. `eventoId` nulo gera um novo; informe um quando ele precisa ser determinístico (violação de SLA, RN-54). Um `eventoId` já gravado é ignorado, sem erro. Cada routing key vira um registro com `eventoId` próprio, acrescentado ao payload. A publicação é da [outbox - 02].
+
 ## Dependência entre módulos e eventos
 
 - **Módulo que ainda não existe:** quem precisa dele declara uma porta no próprio `api` e a injeta como `Optional<Porta>`; o outro módulo a implementa depois, sem mudar quem a usa. Exemplo: `identidade.api.ChamadosDoTecnico`, implementada pela [chamado - 13].
