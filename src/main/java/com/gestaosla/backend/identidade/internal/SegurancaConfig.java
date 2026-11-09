@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -18,6 +19,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
+import com.gestaosla.backend.shared.api.RegrasAcesso;
+
 /**
  * API stateless autenticada pelo JWT do Keycloak (RF-01). Emissor, chaves e {@code aud} vêm do
  * application.properties; papéis e usuário inativo, do {@link UsuarioCorrenteConverter}. Endpoints restringem
@@ -28,7 +31,7 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 class SegurancaConfig {
 
     @Bean
-    SecurityFilterChain api(HttpSecurity http, UsuarioCorrenteConverter usuarioCorrente,
+    SecurityFilterChain api(HttpSecurity http, UsuarioCorrenteConverter usuarioCorrente, List<RegrasAcesso> regrasDosModulos,
             @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) throws Exception {
         // 401 e 403 nascem nos filtros, fora do Spring MVC: são repassados ao GlobalExceptionHandler para saírem
         // em Problem Details. O resource server tem entry point próprio (token inválido), por isso aparece duas vezes.
@@ -38,9 +41,14 @@ class SegurancaConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health/**").permitAll()
-                        .anyRequest().authenticated())
+                .authorizeHttpRequests(rotas -> {
+                    rotas.requestMatchers("/actuator/health/**").permitAll();
+                    // Só existem com API_DOCS_ENABLED=true (dev); desligados, dão 404.
+                    rotas.requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll();
+                    // Papel por rota, declarado por cada módulo: 403 antes de o corpo ser lido e validado.
+                    regrasDosModulos.forEach(regras -> regras.aplicar(rotas));
+                    rotas.anyRequest().authenticated();
+                })
                 .oauth2ResourceServer(oauth -> oauth
                         .jwt(jwt -> jwt.jwtAuthenticationConverter(usuarioCorrente))
                         .authenticationEntryPoint(naoAutenticado)
@@ -49,6 +57,12 @@ class SegurancaConfig {
                         .authenticationEntryPoint(naoAutenticado)
                         .accessDeniedHandler(acessoNegado))
                 .build();
+    }
+
+    // Mesmo papel do @PreAuthorize do UsuarioController.
+    @Bean
+    RegrasAcesso regrasIdentidade() {
+        return rotas -> rotas.requestMatchers(HttpMethod.POST, "/api/usuarios").hasRole("GESTOR");
     }
 
     // Só o frontend chama a API pelo navegador. O nome do bean é o que o .cors() procura.

@@ -92,6 +92,7 @@ services:
       KC_HOSTNAME_STRICT: "false"
       # Lidas pelos placeholders ${...} do realm-flowsla.json no import.
       FRONTEND_URL: ${FRONTEND_URL}
+      SWAGGER_URL: ${SWAGGER_URL}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       KEYCLOAK_GESTOR_PASSWORD: ${KEYCLOAK_GESTOR_PASSWORD}

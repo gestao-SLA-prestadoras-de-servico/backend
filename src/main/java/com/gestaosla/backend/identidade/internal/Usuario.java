@@ -35,4 +35,13 @@ class Usuario extends EntidadeBase {
 
     @Version
     private long version;
+
+    Usuario(UUID sub, String nome, String email, Papel perfil, UUID clienteId) {
+        this.sub = sub;
+        this.nome = nome;
+        this.email = email;
+        this.perfil = perfil;
+        this.clienteId = clienteId;
+        this.ativo = true;
+    }
 }

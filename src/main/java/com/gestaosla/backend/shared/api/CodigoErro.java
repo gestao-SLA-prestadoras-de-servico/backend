@@ -27,5 +27,9 @@ public enum CodigoErro {
     EVIDENCIA_OBRIGATORIA,      // RN-72
     CANCELAMENTO_NAO_PERMITIDO, // RN-19
     REATRIBUICAO_NAO_PERMITIDA, // RN-20
-    REABERTURA_NAO_PERMITIDA    // RN-93, RN-99
+    REABERTURA_NAO_PERMITIDA,   // RN-93, RN-99
+    CLIENTE_OBRIGATORIO,        // RF-09: usuário de perfil CLIENTE precisa da empresa
+    CLIENTE_INEXISTENTE,        // RF-09: empresa informada não existe
+    CLIENTE_INATIVO,            // cadastro-01: cliente inativo não aceita novo usuário
+    CLIENTE_NAO_PERMITIDO       // RF-09: técnico e gestor não pertencem a empresa cliente
 }

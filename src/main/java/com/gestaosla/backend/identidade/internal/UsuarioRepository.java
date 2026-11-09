@@ -10,4 +10,6 @@ interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
     Optional<Usuario> findBySub(UUID sub);
 
     boolean existsBySub(UUID sub);
+
+    boolean existsByEmailIgnoreCase(String email);
 }

@@ -29,6 +29,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<resilience4j.version>2.4.0</resilience4j.version>
+		<springdoc.version>3.2.0</springdoc.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -81,6 +82,12 @@
 			<groupId>io.github.resilience4j</groupId>
 			<artifactId>resilience4j-spring-boot4</artifactId>
 			<version>${resilience4j.version}</version>
+		</dependency>
+		<!-- OpenAPI + Swagger UI (plataforma-06). Fora do BOM do Boot: versão em springdoc.version. -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>${springdoc.version}</version>
 		</dependency>
 		<!-- AOP exigido pelas anotações @Retry do Resilience4j -->
 		<dependency>

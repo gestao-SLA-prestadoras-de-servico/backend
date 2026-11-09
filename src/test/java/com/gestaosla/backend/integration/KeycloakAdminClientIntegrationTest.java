@@ -58,6 +58,7 @@ class KeycloakAdminClientIntegrationTest {
             .withEnv("KEYCLOAK_ADMIN_CLIENT_SECRET", SEGREDO)
             .withEnv("KEYCLOAK_GESTOR_PASSWORD", "gestor-teste")
             .withEnv("FRONTEND_URL", "http://localhost:5173")
+            .withEnv("SWAGGER_URL", "http://localhost:8080")
             .withEnv("SMTP_HOST", "mailpit")
             .withEnv("SMTP_PORT", "1025")
             .withFileSystemBind(new File("infra/keycloak/realm-flowsla.json").getAbsolutePath(),
