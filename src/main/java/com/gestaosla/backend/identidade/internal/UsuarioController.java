@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.gestaosla.backend.identidade.api.UsuarioCorrente;
+import com.gestaosla.backend.shared.api.Ator;
 import com.gestaosla.backend.shared.api.Papel;
 import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 import com.gestaosla.backend.shared.api.RespostasErro;
@@ -40,6 +42,7 @@ class UsuarioController {
     private final UsuarioRepository usuarios;
     private final CadastroUsuarioService cadastro;
     private final UsuarioConsultaService consulta;
+    private final InativacaoUsuarioService inativacao;
 
     @Operation(summary = "Cadastrar usuário", description = "Somente GESTOR. Cria a conta no Keycloak com o papel e o registro "
             + "local; o usuário recebe por e-mail o link para definir a senha (o sistema nunca recebe senha).")
@@ -69,11 +72,29 @@ class UsuarioController {
         return new PagedModel<>(consulta.listar(perfil, ativo, clienteId, pagina).map(UsuarioResponse::de));
     }
 
+    @Operation(summary = "Inativar usuário", description = "Somente GESTOR. Desabilita a conta no Keycloak e preserva o registro. "
+            + "Idempotente. Técnico com chamados não finalizados exige `substitutoId`, o id de outro técnico ativo. "
+            + "Códigos 422: SUBSTITUTO_OBRIGATORIO, SUBSTITUTO_INVALIDO, AUTOINATIVACAO_NAO_PERMITIDA, ULTIMO_GESTOR_ATIVO.")
+    @ApiResponse(responseCode = "204", description = "Usuário inativo")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @ApiResponse(responseCode = "422", ref = RespostasErro.REGRA_NEGOCIO)
+    @ApiResponse(responseCode = "503", ref = RespostasErro.SERVICO_INDISPONIVEL)
+    @PostMapping("/{id}/inativacao")
+    @PreAuthorize("hasRole('GESTOR')")
+    ResponseEntity<Void> inativar(@PathVariable UUID id, @RequestBody(required = false) Inativacao corpo,
+            @AuthenticationPrincipal UsuarioCorrente gestor) {
+        inativacao.inativar(id, corpo == null ? null : corpo.substitutoId(), Ator.usuario(gestor.sub(), gestor.papel()));
+        return ResponseEntity.noContent().build();
+    }
+
     /** Usuário autenticado, achado pelo {@code sub} do token; nunca por parâmetro da requisição. */
     @Operation(summary = "Usuário autenticado", description = "Qualquer perfil. Identificado pelo sub do token.")
     @GetMapping("/me")
     UsuarioResponse me(@AuthenticationPrincipal UsuarioCorrente usuario) {
         return usuarios.findBySub(usuario.sub()).map(UsuarioResponse::de).orElseThrow(RecursoNaoEncontradoException::new);
+    }
+
+    record Inativacao(UUID substitutoId) {
     }
 
     record UsuarioResponse(UUID id, UUID sub, String nome, String email, Papel perfil, UUID clienteId, boolean ativo) {

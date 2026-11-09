@@ -198,7 +198,7 @@
     "/api/clientes/{id}/inativacao" : {
       "post" : {
         "description" : "Somente GESTOR. Idempotente; preserva o histórico (RN-07).",
-        "operationId" : "inativar",
+        "operationId" : "inativar_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -468,6 +468,58 @@
           }
         },
         "summary" : "Usuário autenticado",
+        "tags" : [ "Identidade" ]
+      }
+    },
+    "/api/usuarios/{id}/inativacao" : {
+      "post" : {
+        "description" : "Somente GESTOR. Desabilita a conta no Keycloak e preserva o registro. Idempotente. Técnico com chamados não finalizados exige `substitutoId`, o id de outro técnico ativo. Códigos 422: SUBSTITUTO_OBRIGATORIO, SUBSTITUTO_INVALIDO, AUTOINATIVACAO_NAO_PERMITIDA, ULTIMO_GESTOR_ATIVO.",
+        "operationId" : "inativar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Inativacao"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "204" : {
+            "description" : "Usuário inativo"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/RegraNegocio"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          },
+          "503" : {
+            "$ref" : "#/components/responses/ServicoIndisponivel"
+          }
+        },
+        "summary" : "Inativar usuário",
         "tags" : [ "Identidade" ]
       }
     }
@@ -780,6 +832,15 @@
         },
         "required" : [ "bairro", "cep", "cidade", "logradouro", "numero", "uf" ]
       },
+      "Inativacao" : {
+        "type" : "object",
+        "properties" : {
+          "substitutoId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "NovoUsuario" : {
         "type" : "object",
         "properties" : {
@@ -927,6 +988,10 @@
           "chamadosNaoFinalizados" : {
             "type" : "integer",
             "format" : "int64"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
           },
           "nome" : {
             "type" : "string"

@@ -48,4 +48,4 @@ A trilha de auditoria é o histórico defensável do sistema: quem fez o quê, q
 
 ## Como verificar
 
-Ver `docs/testes/auditoria-01-registrar-auditoria-imutavel.md`.
+Ver `docs/testes/auditoria/auditoria-01-registrar-auditoria-imutavel.md`.

@@ -1,5 +1,7 @@
 # [plataforma - 02] Completar o Docker Compose e o Dockerfile com as dependências do app-principal
 
+> **Atualização:** a importação via `post_start` descrita aqui foi substituída depois pelo serviço `rabbitmq-init` (`generate_definitions.py` + `rabbitmq.conf`), e a topologia passou para `infra/rabbitmq/topologia.json`. Ver `docs/tasks/outbox/outbox-02-topologia-rabbitmq.md`.
+
 > Requisitos: seção 3, RN-58, RN-80 · Depende de: [plataforma - 01]
 
 ## Contexto
@@ -78,4 +80,4 @@ make build-dev
 
 ## Como verificar
 
-Ver `docs/testes/plataforma-02-completar-docker-compose-e-dockerfile.md`.
+Ver `docs/testes/plataforma/plataforma-02-completar-docker-compose-e-dockerfile.md`.

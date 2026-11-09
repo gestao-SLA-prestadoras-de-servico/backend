@@ -48,4 +48,4 @@ O frontend precisa saber quem está logado para montar o menu, e o gestor precis
 
 ## Como verificar
 
-Ver `docs/testes/autenticacao-05-consultar-usuarios-tecnicos-perfil.md`.
+Ver `docs/testes/autenticacao/autenticacao-05-consultar-usuarios-tecnicos-perfil.md`.

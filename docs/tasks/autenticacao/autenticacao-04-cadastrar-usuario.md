@@ -52,4 +52,4 @@ O gestor cadastra clientes, técnicos e outros gestores. A conta vive no Keycloa
 
 ## Como verificar
 
-Ver `docs/testes/autenticacao-04-cadastrar-usuario.md`.
+Ver `docs/testes/autenticacao/autenticacao-04-cadastrar-usuario.md`.

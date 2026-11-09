@@ -174,6 +174,51 @@ Conectado como `postgres` (superusuário), o 6.2 e o 6.4 são barrados pelo trig
 | 7.11 | `GET /api/usuarios?perfil=ADMIN` | **400** `VALIDACAO` |
 | 7.12 | `GET /api/tecnicos?ativos=true` | 200, paginado; a Ana aparece com `sub`, `nome` e `chamadosNaoFinalizados: 0` |
 
+## 7A. Inativação de usuário ([autenticação - 06])
+
+Faça logado como gestor. Cadastre antes um técnico descartável e anote o `id` dele (`TD`); guarde também o `id` do gestor em `/api/usuarios/me`.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7A.1 | `POST /api/usuarios/{id do gestor}/inativacao` | **422** `AUTOINATIVACAO_NAO_PERMITIDA` |
+| 7A.2 | `POST /api/usuarios/{TD}/inativacao` com `{"substitutoId":"<TD>"}` | **422** `SUBSTITUTO_INVALIDO` |
+| 7A.3 | `POST /api/usuarios/{TD}/inativacao` sem corpo | 204 |
+| 7A.4 | Repetir o 7A.3 | 204, sem nova linha na auditoria |
+| 7A.5 | Keycloak → **Users** → o técnico | **Enabled** desligado |
+| 7A.6 | psql: `select ativo from usuario where id = '<TD>';` e `select operacao, dados from auditoria where entidade_id = '<TD>';` | `ativo = f`; uma linha `INATIVACAO_USUARIO` |
+| 7A.7 | Inativar um cliente com usuários e repetir o 7A.5 e o 7A.6 para um deles | Conta desabilitada; auditoria com `ator_sub` nulo |
+
+## 7B. Topologia do RabbitMQ ([outbox - 02])
+
+Management em http://localhost:15672, com `RABBITMQ_USER`/`RABBITMQ_PASSWORD` de `.envs/.env.dev`. O ms-notificacoes não precisa estar rodando.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7B.1 | **Exchanges** | `notificacoes`, `notificacoes.dlx`, `evidencias` e `evidencias.dlx`, todas `direct` |
+| 7B.2 | **Queues and Streams** | As 6 filas; as DLQs de notificação com `x-message-ttl` 604800000; as 3 filas principais com `x-dead-letter-exchange` |
+| 7B.3 | Exchange `notificacoes` → **Publish message**, routing key `email`, *Delivery mode* persistente | `Message published.`; `notificacoes.email` com 1 mensagem |
+| 7B.4 | `docker compose ... restart rabbitmq` e conferir a fila | A mensagem continua lá |
+| 7B.5 | Fila `notificacoes.email` → **Purge Messages** | Fila vazia (limpeza do teste) |
+
+## 7C. Publicador da outbox ([outbox - 03])
+
+Nenhum módulo grava eventos ainda; o evento entra direto pelo psql (`<ID>` = um UUID qualquer):
+
+```sql
+insert into outbox_eventos (id, evento_id, tipo, exchange, routing_key, payload, criado_em)
+values (gen_random_uuid(), '<ID>', 'ATRIBUICAO', 'notificacoes', 'interna', '{"eventoId":"<ID>"}', now());
+```
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7C.1 | Inserir o evento e esperar 5 s | `publicado_em` preenchido; `notificacoes.interna` com 1 mensagem, `message_id` = `<ID>` |
+| 7C.2 | `docker compose ... stop rabbitmq`, inserir outro evento (routing key `email`) e esperar 10 s | `publicado_em` nulo, `tentativas` ≥ 1, `ultimo_erro` preenchido |
+| 7C.3 | `docker compose ... start rabbitmq` e esperar | O evento é publicado; `notificacoes.email` com 1 mensagem |
+| 7C.4 | Inserir um evento com routing key `inexistente` | Fica pendente com `ultimo_erro` "Sem fila de destino"; os eventos criados depois dele também ficam pendentes. Apague-o (`delete from outbox_eventos where evento_id = '<ID>'`) para o publicador seguir |
+| 7C.5 | Esvaziar as filas usadas (como no 7B.5) | Filas vazias |
+
+As métricas `outbox_*` estão em `/actuator/prometheus`, que hoje exige token.
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |
