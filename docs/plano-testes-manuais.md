@@ -157,17 +157,22 @@ truncate auditoria;
 
 Conectado como `postgres` (superusuário), o 6.2 e o 6.4 são barrados pelo trigger. Como `app_principal`, já dariam `permission denied`.
 
-## 7. Login dos usuários novos e regras por papel ([autenticação - 02] + [autenticação - 04])
+## 7. Login dos usuários novos e regras por papel ([autenticação - 02], [autenticação - 04] e [autenticação - 05])
 
 | # | Passo | Resultado esperado |
 | --- | --- | --- |
 | 7.1 | Swagger → **Authorize** → **Logout**. Encerrar também a sessão do Keycloak no navegador: abrir http://localhost:8081/realms/flowsla/protocol/openid-connect/logout e confirmar (ou usar uma janela anônima). Depois **Authorize** com `ana.tecnica@flowsla.local` / `Teste@12345` | Tela de login do Keycloak aparece; logado como a técnica |
 | 7.2 | `GET /api/usuarios/me` | 200, `perfil: TECNICO`, `clienteId: null` |
-| 7.3 | `GET /api/clientes` | **403** `ACESSO_NEGADO` (só gestor) |
+| 7.3 | `GET /api/clientes`, `GET /api/usuarios` e `GET /api/tecnicos` | **403** `ACESSO_NEGADO` nos três (só gestor) |
 | 7.4 | `POST /api/usuarios` com qualquer corpo | **403** |
 | 7.5 | Logout no Swagger e no Keycloak (como no 7.1); login como `carla@norte.com.br` / `Teste@12345`; `GET /api/usuarios/me` | 200, `perfil: CLIENTE`, `clienteId` = id de CA |
 | 7.6 | **Usuário inativo:** com a Carla ainda logada, no psql: `update usuario set ativo = false where email = 'carla@norte.com.br';` e repetir o `/me` | **401** `NAO_AUTENTICADO`, mesmo com o token ainda válido |
 | 7.7 | Voltar: `update usuario set ativo = true where email = 'carla@norte.com.br';` e repetir | 200 |
+| 7.8 | Ainda como Carla: `GET /api/usuarios` e `GET /api/tecnicos` | **403** `ACESSO_NEGADO` nos dois |
+| 7.9 | Logout (como no 7.1); login como gestor; `GET /api/usuarios?perfil=GESTOR&ativo=true` | 200, paginado; só gestores ativos, incluindo `Gestor Inicial` e Bruno |
+| 7.10 | `GET /api/usuarios` com `clienteId` = id de CA | 200, com a Carla |
+| 7.11 | `GET /api/usuarios?perfil=ADMIN` | **400** `VALIDACAO` |
+| 7.12 | `GET /api/tecnicos?ativos=true` | 200, paginado; a Ana aparece com `sub`, `nome` e `chamadosNaoFinalizados: 0` |
 
 ## 8. Desfecho
 

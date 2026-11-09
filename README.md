@@ -164,7 +164,7 @@ Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam 
 | Conta de serviço | client `app-principal-admin`, segredo `KEYCLOAK_ADMIN_CLIENT_SECRET` | Admin API; só `manage-users`, `view-users` e `view-realm` |
 | E-mails do Keycloak | SMTP `SMTP_HOST:SMTP_PORT` (Mailpit) | ver em http://localhost:8025 |
 
-O backend valida o token em `KEYCLOAK_ISSUER_URI` (o `iss`) e busca as chaves em `KEYCLOAK_JWK_SET_URI`. `GET /api/usuarios/me` devolve o usuário do token.
+O backend valida o token em `KEYCLOAK_ISSUER_URI` (o `iss`) e busca as chaves em `KEYCLOAK_JWK_SET_URI`. `GET /api/usuarios/me` devolve o usuário do token. `GET /api/usuarios` e `GET /api/tecnicos` (só GESTOR) leem a cópia local do perfil: servem para consulta, nunca para autorizar (RN-130).
 
 > [!WARNING]
 > O realm só é importado se ainda não existir no banco do Keycloak. Depois de alterar o `realm-flowsla.json`, rode `make run-dev-down` (apaga os dados de dev) e suba de novo.

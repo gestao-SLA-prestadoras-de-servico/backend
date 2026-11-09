@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -59,10 +58,10 @@ class SegurancaConfig {
                 .build();
     }
 
-    // Mesmo papel do @PreAuthorize do UsuarioController.
+    // Mesmo papel dos @PreAuthorize de UsuarioController e TecnicoController. Caminho exato: /api/usuarios/me fica fora.
     @Bean
     RegrasAcesso regrasIdentidade() {
-        return rotas -> rotas.requestMatchers(HttpMethod.POST, "/api/usuarios").hasRole("GESTOR");
+        return rotas -> rotas.requestMatchers("/api/usuarios", "/api/tecnicos").hasRole("GESTOR");
     }
 
     // Só o frontend chama a API pelo navegador. O nome do bean é o que o .cors() procura.
