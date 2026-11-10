@@ -22,7 +22,7 @@
     "/api/clientes" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100); inclui inativos.",
-        "operationId" : "listar_1",
+        "operationId" : "listar_2",
         "parameters" : [ {
           "in" : "query",
           "name" : "razaoSocial",
@@ -99,7 +99,7 @@
       },
       "post" : {
         "description" : "Somente GESTOR. O cliente nasce ativo.",
-        "operationId" : "criar",
+        "operationId" : "criar_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -232,10 +232,195 @@
         "tags" : [ "Cadastro" ]
       }
     },
+    "/api/contratos" : {
+      "get" : {
+        "description" : "Somente GESTOR. Paginado; `vigente` compara com a data de hoje.",
+        "operationId" : "listar_1",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "clienteId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "vigente",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "codigo,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelContratoResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar contratos",
+        "tags" : [ "Cadastro" ]
+      },
+      "post" : {
+        "description" : "Somente GESTOR. A vigência vale do início até 23:59:59 do fim, no fuso do sistema.",
+        "operationId" : "criar",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DadosContrato"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContratoResponse"
+                }
+              }
+            },
+            "description" : "Contrato criado"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Cadastrar contrato",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/me/contratos" : {
+      "get" : {
+        "description" : "Somente CLIENTE. A empresa vem do usuário autenticado.",
+        "operationId" : "meus",
+        "parameters" : [ {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "codigo,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelContratoResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Contratos vigentes da minha empresa",
+        "tags" : [ "Cadastro" ]
+      }
+    },
     "/api/tecnicos" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100), para escolher o técnico na atribuição e na inativação. Sem `ativos`, lista os ativos.",
-        "operationId" : "listar_2",
+        "operationId" : "listar_3",
         "parameters" : [ {
           "in" : "query",
           "name" : "ativos",
@@ -737,6 +922,30 @@
           }
         }
       },
+      "ContratoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "codigo" : {
+            "type" : "string"
+          },
+          "fimVigencia" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "inicioVigencia" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }
+      },
       "DadosCliente" : {
         "type" : "object",
         "properties" : {
@@ -758,6 +967,32 @@
           }
         },
         "required" : [ "emailContato", "endereco", "razaoSocial" ]
+      },
+      "DadosContrato" : {
+        "type" : "object",
+        "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "codigo" : {
+            "type" : "string",
+            "example" : "CT-2026-001",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "fimVigencia" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "2026-12-31"
+          },
+          "inicioVigencia" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "2026-01-01"
+          }
+        },
+        "required" : [ "clienteId", "codigo", "fimVigencia", "inicioVigencia" ]
       },
       "EdicaoCliente" : {
         "type" : "object",
@@ -899,6 +1134,21 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/ClienteResponse"
+            }
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/PageMetadata"
+          }
+        },
+        "required" : [ "content", "page" ]
+      },
+      "PagedModelContratoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ContratoResponse"
             }
           },
           "page" : {

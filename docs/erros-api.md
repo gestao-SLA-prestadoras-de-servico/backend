@@ -37,6 +37,7 @@ Erro de validação traz também `erros`: `[{ "campo": "titulo", "mensagem": "mu
 | Código | Situação |
 | --- | --- |
 | `USUARIO_JA_EXISTE` | Já existe conta no Keycloak com o mesmo username ou e-mail (RN-127) |
+| `CODIGO_CONTRATO_JA_EXISTE` | Já existe contrato com o mesmo código (cadastro-02) |
 
 ## Catálogo de regras de negócio (422)
 
@@ -53,8 +54,8 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | `REATRIBUICAO_NAO_PERMITIDA` | Reatribuição fora de `ATRIBUIDO`/`EM_ATENDIMENTO` (RN-20) |
 | `REABERTURA_NAO_PERMITIDA` | Reabertura fora de `RESOLVIDO` (RN-93, RN-99) |
 | `CLIENTE_OBRIGATORIO` | Usuário de perfil CLIENTE sem a empresa cliente (RF-09) |
-| `CLIENTE_INEXISTENTE` | Empresa cliente informada não existe (RF-09) |
-| `CLIENTE_INATIVO` | Empresa cliente inativa não aceita novo usuário (cadastro-01) |
+| `CLIENTE_INEXISTENTE` | Empresa cliente informada não existe (RF-09, RF-06) |
+| `CLIENTE_INATIVO` | Empresa cliente inativa não aceita novo usuário nem novo contrato (cadastro-01, cadastro-02) |
 | `CLIENTE_NAO_PERMITIDO` | Técnico ou gestor informado com empresa cliente (RF-09) |
 | `SUBSTITUTO_OBRIGATORIO` | Técnico com chamados não finalizados inativado sem substituto (RN-133) |
 | `SUBSTITUTO_INVALIDO` | Substituto inexistente, inativo, não técnico ou o próprio inativado (RN-133) |

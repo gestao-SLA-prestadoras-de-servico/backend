@@ -110,6 +110,21 @@ Pelo Swagger (tag **Cadastro**), logado como gestor:
 | 4.12 | `GET /api/clientes?ativo=false` | Só CB, com `ativo: false` (continua no histórico) |
 | 4.13 | `POST /api/clientes/00000000-0000-0000-0000-000000000000/inativacao` | 404 `RECURSO_NAO_ENCONTRADO` |
 
+## 4A. Cadastro de contratos ([cadastro - 02])
+
+Logado como gestor. "Hoje" é a data do sistema no fuso `America/Fortaleza`.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 4A.1 | `POST /api/contratos` com `clienteId` = CA, `codigo: "CT-NORTE-01"`, início 1º de janeiro e fim 31 de dezembro do ano corrente | 201; anote o `id` (**KA**) |
+| 4A.2 | `POST /api/contratos` com `clienteId` = CA, `codigo: "CT-NORTE-00"`, vigência no ano passado inteiro | 201 (**KV**, vencido); RN-06: CA tem dois contratos |
+| 4A.3 | Repetir o 4A.1 | 409 `CODIGO_CONTRATO_JA_EXISTE` |
+| 4A.4 | `POST` com `codigo: "CT-X"`, início `2026-02-01` e fim `2026-01-31` | 400 `VALIDACAO`, `erros[0].campo: fimVigencia` |
+| 4A.5 | `POST` com `clienteId` = CB (inativo desde o 4.11), `codigo: "CT-SUL-01"` | 422 `CLIENTE_INATIVO` |
+| 4A.6 | `POST` com `clienteId: "00000000-0000-0000-0000-000000000000"` | 422 `CLIENTE_INEXISTENTE` |
+| 4A.7 | `GET /api/contratos?clienteId={CA}` | KV e KA, nessa ordem (por código) |
+| 4A.8 | `GET /api/contratos?clienteId={CA}&vigente=true` e depois `vigente=false` | Só KA; depois só KV |
+
 ## 5. Cadastro de usuários ([autenticação - 04] + [autenticação - 03])
 
 Pelo Swagger (tag **Identidade**), `POST /api/usuarios`:
@@ -166,6 +181,7 @@ Conectado como `postgres` (superusuário), o 6.2 e o 6.4 são barrados pelo trig
 | 7.3 | `GET /api/clientes`, `GET /api/usuarios` e `GET /api/tecnicos` | **403** `ACESSO_NEGADO` nos três (só gestor) |
 | 7.4 | `POST /api/usuarios` com qualquer corpo | **403** |
 | 7.5 | Logout no Swagger e no Keycloak (como no 7.1); login como `carla@norte.com.br` / `Teste@12345`; `GET /api/usuarios/me` | 200, `perfil: CLIENTE`, `clienteId` = id de CA |
+| 7.5a | Ainda como Carla: `GET /api/me/contratos` e depois `GET /api/contratos` | Só KA (o vencido KV não aparece) ([cadastro - 02]); depois **403** |
 | 7.6 | **Usuário inativo:** com a Carla ainda logada, no psql: `update usuario set ativo = false where email = 'carla@norte.com.br';` e repetir o `/me` | **401** `NAO_AUTENTICADO`, mesmo com o token ainda válido |
 | 7.7 | Voltar: `update usuario set ativo = true where email = 'carla@norte.com.br';` e repetir | 200 |
 | 7.8 | Ainda como Carla: `GET /api/usuarios` e `GET /api/tecnicos` | **403** `ACESSO_NEGADO` nos dois |

@@ -18,6 +18,7 @@ public enum CodigoErro {
 
     // Conflitos: lançados via ConflitoException (409)
     USUARIO_JA_EXISTE,          // RN-127: conta com mesmo username ou e-mail no Keycloak
+    CODIGO_CONTRATO_JA_EXISTE,  // cadastro-02: código de contrato é único no sistema
 
     // Regras de negócio: lançados via RegraNegocioException (422)
     TRANSICAO_INVALIDA,         // RN-11, RN-13
