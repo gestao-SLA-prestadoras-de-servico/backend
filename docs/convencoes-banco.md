@@ -33,6 +33,8 @@ CREATE TABLE exemplo (
 
 A trilha de auditoria (`auditoria`) **não** estende `EntidadeBase`: um registro que nunca é alterado não tem `updated_at`. Ela tem `id` (UUID v7) e `ocorrido_em` (`timestamptz`, vindo do `Clock`), que é a base dos 5 anos de retenção. Tabela imutável nova segue o mesmo modelo, com trigger que rejeita `UPDATE` (ver `V4__cria_auditoria.sql`).
 
+As versões de política de SLA (`politica_sla_versao`, RN-04) seguem o modelo: sem `updated_at`, com `criada_em` vindo do `Clock`, entidade `@Immutable` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` sem exceção (ver `V8__cria_politica_sla.sql`). Alterar a política é inserir uma versão nova.
+
 ### Exceção: tabela de saída (`outbox_eventos`)
 
 - Nome no plural, por ser o da especificação (`docs/flowSLA.md`, seção 3.6).

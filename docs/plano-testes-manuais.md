@@ -125,6 +125,22 @@ Logado como gestor. "Hoje" é a data do sistema no fuso `America/Fortaleza`.
 | 4A.7 | `GET /api/contratos?clienteId={CA}` | KV e KA, nessa ordem (por código) |
 | 4A.8 | `GET /api/contratos?clienteId={CA}&vigente=true` e depois `vigente=false` | Só KA; depois só KV |
 
+## 4B. Políticas de SLA versionadas ([cadastro - 03])
+
+Logado como gestor. Prazos em minutos de janela (540 = 1 dia útil).
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 4B.1 | `GET /api/politicas` | A política `Padrão` (seed), versão 1: alta 120/540/1080, normal 540/1620/2700, `prioridadePadrao: NORMAL`, `criadaPor: null` |
+| 4B.2 | `POST /api/politicas` com `nome: "Ouro"`, `prioridadePadrao: "ALTA"` e `prazos` `{"alta":{"resposta":60,"campo":300,"resolucao":900},"normal":{"resposta":300,"campo":900,"resolucao":1800}}` | 201, `versaoAtual.numero: 1`; anote o `id` (**PO**) |
+| 4B.3 | Repetir o 4B.2 | 409 `NOME_POLITICA_JA_EXISTE` |
+| 4B.4 | `POST /api/politicas` com outro nome e `alta.resposta` igual a `alta.campo` (ex.: 300 e 300) | 422 `ORDEM_PRAZOS_INVALIDA`, mensagem citando `ALTA` |
+| 4B.5 | `POST /api/politicas/{PO}/versoes` com `prioridadePadrao: "NORMAL"` e `normal.campo` maior que `normal.resolucao` | 422 `ORDEM_PRAZOS_INVALIDA`, citando `NORMAL` |
+| 4B.6 | `POST /api/politicas/{PO}/versoes` com os prazos do 4B.2 trocando `alta.resposta` para 90 | 201, `numero: 2` |
+| 4B.7 | `GET /api/politicas/{PO}/versoes` | Versões 2 e 1, nessa ordem; a 1 ainda com `alta.resposta: 60` |
+| 4B.8 | No psql: `update politica_sla_versao set resposta_alta = 1;` | Erro "Versão de política de SLA não pode ser alterada nem removida (RN-04)." |
+| 4B.9 | No psql: `select operacao, entidade_tipo, dados from auditoria where entidade_id = '{PO}';` | 2 linhas `ALTERACAO_POLITICA` / `POLITICA_SLA`, com `versao` 1 e 2 |
+
 ## 5. Cadastro de usuários ([autenticação - 04] + [autenticação - 03])
 
 Pelo Swagger (tag **Identidade**), `POST /api/usuarios`:

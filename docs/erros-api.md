@@ -38,6 +38,7 @@ Erro de validação traz também `erros`: `[{ "campo": "titulo", "mensagem": "mu
 | --- | --- |
 | `USUARIO_JA_EXISTE` | Já existe conta no Keycloak com o mesmo username ou e-mail (RN-127) |
 | `CODIGO_CONTRATO_JA_EXISTE` | Já existe contrato com o mesmo código (cadastro-02) |
+| `NOME_POLITICA_JA_EXISTE` | Já existe política de SLA com o mesmo nome (cadastro-03) |
 
 ## Catálogo de regras de negócio (422)
 
