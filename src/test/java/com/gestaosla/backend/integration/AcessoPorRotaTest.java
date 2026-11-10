@@ -47,6 +47,7 @@ class AcessoPorRotaTest {
             new Rota(HttpMethod.POST, "/api/clientes/" + ID + "/inativacao"),
             new Rota(HttpMethod.POST, "/api/contratos"),
             new Rota(HttpMethod.GET, "/api/contratos"),
+            new Rota(HttpMethod.PUT, "/api/contratos/" + ID + "/politica"),
             new Rota(HttpMethod.POST, "/api/politicas"),
             new Rota(HttpMethod.GET, "/api/politicas"),
             new Rota(HttpMethod.POST, "/api/politicas/" + ID + "/versoes"),

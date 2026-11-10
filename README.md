@@ -43,7 +43,7 @@ O backend é um monólito modular. Cada módulo fica em `com.gestaosla.backend.<
 | ------------ | ------------------------------------------------------ |
 | `shared`     | Tipos e utilitários comuns a todos os módulos          |
 | `identidade` | Autenticação, usuários e permissões                    |
-| `cadastro`   | Cadastros base (clientes, contratos, prestadores)      |
+| `cadastro`   | Clientes, contratos e políticas de SLA versionadas     |
 | `chamado`    | Abertura e ciclo de vida dos chamados                  |
 | `sla`        | Regras de SLA, cálculo e controle de prazos            |
 | `evidencia`  | Evidências anexadas aos atendimentos                   |

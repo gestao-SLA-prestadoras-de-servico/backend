@@ -13,17 +13,24 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import com.gestaosla.backend.shared.api.Ator;
+import com.gestaosla.backend.shared.api.Papel;
+import com.gestaosla.backend.shared.api.RespostasErro;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 
 import lombok.RequiredArgsConstructor;
 
@@ -54,6 +61,17 @@ class ContratoController {
         return new PagedModel<>(servico.listar(clienteId, vigente, pagina).map(ContratoResponse::de));
     }
 
+    @Operation(summary = "Vincular ou trocar a política do contrato", description = "Somente GESTOR. O contrato tem uma "
+            + "política por vez; chamados já abertos mantêm a versão da abertura (RN-02, RN-05). Política inexistente: 422.")
+    @ApiResponse(responseCode = "200", description = "Política vinculada")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PutMapping("/contratos/{id}/politica")
+    @PreAuthorize("hasRole('GESTOR')")
+    ContratoResponse vincularPolitica(@PathVariable UUID id, @Valid @RequestBody Vinculo corpo,
+            @AuthenticationPrincipal(expression = "sub") UUID sub, @AuthenticationPrincipal(expression = "papel") Papel papel) {
+        return ContratoResponse.de(servico.vincularPolitica(id, corpo.politicaId(), Ator.usuario(sub, papel)));
+    }
+
     @Operation(summary = "Contratos vigentes da minha empresa", description = "Somente CLIENTE. A empresa vem do usuário autenticado.")
     @GetMapping("/me/contratos")
     @PreAuthorize("hasRole('CLIENTE')")
@@ -64,10 +82,16 @@ class ContratoController {
         return new PagedModel<>(servico.listarVigentesDoCliente(empresaClienteId, pagina).map(ContratoResponse::de));
     }
 
-    record ContratoResponse(UUID id, UUID clienteId, String codigo, LocalDate inicioVigencia, LocalDate fimVigencia) {
+    record Vinculo(@NotNull UUID politicaId) {
+    }
+
+    /** {@code politicaId} nulo: contrato ainda sem política, não recebe chamados (RN-03). */
+    record ContratoResponse(UUID id, UUID clienteId, String codigo, LocalDate inicioVigencia, LocalDate fimVigencia,
+            UUID politicaId) {
 
         static ContratoResponse de(Contrato c) {
-            return new ContratoResponse(c.getId(), c.getClienteId(), c.getCodigo(), c.getInicioVigencia(), c.getFimVigencia());
+            return new ContratoResponse(c.getId(), c.getClienteId(), c.getCodigo(), c.getInicioVigencia(), c.getFimVigencia(),
+                    c.getPoliticaId());
         }
     }
 }

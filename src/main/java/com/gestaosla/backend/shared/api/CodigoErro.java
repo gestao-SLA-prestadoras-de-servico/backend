@@ -25,6 +25,7 @@ public enum CodigoErro {
     TRANSICAO_INVALIDA,         // RN-11, RN-13
     CONTRATO_FORA_VIGENCIA,     // RN-01
     CONTRATO_SEM_POLITICA,      // RN-03
+    POLITICA_INEXISTENTE,       // cadastro-04: política informada no vínculo não existe
     ORDEM_PRAZOS_INVALIDA,      // RN-30, RN-32
     EVIDENCIA_OBRIGATORIA,      // RN-72
     CANCELAMENTO_NAO_PERMITIDO, // RN-19

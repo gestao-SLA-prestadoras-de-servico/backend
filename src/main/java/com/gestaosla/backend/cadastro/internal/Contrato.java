@@ -24,12 +24,22 @@ public class Contrato extends EntidadeBase {
 
     private LocalDate fimVigencia;
 
+    /** Política vigente (RN-02); nula enquanto o gestor não vincula (RN-03). */
+    private UUID politicaId;
+
     // Público só para o teste em unit/; fora do módulo, o Modulith barra.
     public Contrato(UUID clienteId, String codigo, LocalDate inicioVigencia, LocalDate fimVigencia) {
         this.clienteId = clienteId;
         this.codigo = codigo;
         this.inicioVigencia = inicioVigencia;
         this.fimVigencia = fimVigencia;
+    }
+
+    /** @return a política anterior, ou {@code null} se o contrato não tinha */
+    UUID vincular(UUID politicaId) {
+        UUID anterior = this.politicaId;
+        this.politicaId = politicaId;
+        return anterior;
     }
 
     /**

@@ -352,6 +352,60 @@
         "tags" : [ "Cadastro" ]
       }
     },
+    "/api/contratos/{id}/politica" : {
+      "put" : {
+        "description" : "Somente GESTOR. O contrato tem uma política por vez; chamados já abertos mantêm a versão da abertura (RN-02, RN-05). Política inexistente: 422.",
+        "operationId" : "vincularPolitica",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Vinculo"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContratoResponse"
+                }
+              }
+            },
+            "description" : "Política vinculada"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Vincular ou trocar a política do contrato",
+        "tags" : [ "Cadastro" ]
+      }
+    },
     "/api/me/contratos" : {
       "get" : {
         "description" : "Somente CLIENTE. A empresa vem do usuário autenticado.",
@@ -1166,6 +1220,10 @@
           "inicioVigencia" : {
             "type" : "string",
             "format" : "date"
+          },
+          "politicaId" : {
+            "type" : "string",
+            "format" : "uuid"
           }
         }
       },
@@ -1659,6 +1717,16 @@
             "enum" : [ "ALTA", "NORMAL" ]
           }
         }
+      },
+      "Vinculo" : {
+        "type" : "object",
+        "properties" : {
+          "politicaId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "politicaId" ]
       }
     },
     "securitySchemes" : {

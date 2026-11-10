@@ -48,12 +48,13 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | --- | --- |
 | `TRANSICAO_INVALIDA` | Transição fora da máquina de estados ou a partir de estado final (RN-11, RN-13) |
 | `CONTRATO_FORA_VIGENCIA` | Chamado aberto sob contrato sem vigência ativa (RN-01) |
-| `CONTRATO_SEM_POLITICA` | Contrato sem política de SLA vinculada (RN-03) |
+| `CONTRATO_SEM_POLITICA` | Contrato sem política de SLA vinculada (RN-03); lançado por `cadastro.api.ContratoConsulta.versaoVigenteDaPolitica` |
 | `ORDEM_PRAZOS_INVALIDA` | Política com prazos fora da ordem resposta < campo < resolução (RN-30, RN-32) |
 | `EVIDENCIA_OBRIGATORIA` | Conclusão de atendimento sem evidência (RN-72) |
 | `CANCELAMENTO_NAO_PERMITIDO` | Cancelamento a partir de `RESOLVIDO` ou depois (RN-19) |
 | `REATRIBUICAO_NAO_PERMITIDA` | Reatribuição fora de `ATRIBUIDO`/`EM_ATENDIMENTO` (RN-20) |
 | `REABERTURA_NAO_PERMITIDA` | Reabertura fora de `RESOLVIDO` (RN-93, RN-99) |
+| `POLITICA_INEXISTENTE` | Política de SLA informada no vínculo com o contrato não existe (cadastro-04) |
 | `CLIENTE_OBRIGATORIO` | Usuário de perfil CLIENTE sem a empresa cliente (RF-09) |
 | `CLIENTE_INEXISTENTE` | Empresa cliente informada não existe (RF-09, RF-06) |
 | `CLIENTE_INATIVO` | Empresa cliente inativa não aceita novo usuário nem novo contrato (cadastro-01, cadastro-02) |

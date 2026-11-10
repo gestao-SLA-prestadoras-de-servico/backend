@@ -141,6 +141,20 @@ Logado como gestor. Prazos em minutos de janela (540 = 1 dia útil).
 | 4B.8 | No psql: `update politica_sla_versao set resposta_alta = 1;` | Erro "Versão de política de SLA não pode ser alterada nem removida (RN-04)." |
 | 4B.9 | No psql: `select operacao, entidade_tipo, dados from auditoria where entidade_id = '{PO}';` | 2 linhas `ALTERACAO_POLITICA` / `POLITICA_SLA`, com `versao` 1 e 2 |
 
+## 4C. Política do contrato ([cadastro - 04])
+
+Logado como gestor; usa KA (4A.1) e PO (4B.2).
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 4C.1 | `GET /api/contratos?clienteId={CA}` | KA com `politicaId: null` (ainda não recebe chamados, RN-03) |
+| 4C.2 | `PUT /api/contratos/{KA}/politica` com `{"politicaId": "0199a000-0000-7000-8000-00000000c001"}` (Padrão) | 200, `politicaId` da Padrão |
+| 4C.3 | Repetir o 4C.2 | 200, sem novo registro de auditoria |
+| 4C.4 | `PUT /api/contratos/{KA}/politica` com `{"politicaId": "{PO}"}` | 200, `politicaId` = PO (substitui a Padrão) |
+| 4C.5 | `PUT /api/contratos/{KA}/politica` com um `politicaId` aleatório | 422 `POLITICA_INEXISTENTE` |
+| 4C.6 | `PUT /api/contratos/00000000-0000-0000-0000-000000000000/politica` com a Padrão | 404 `RECURSO_NAO_ENCONTRADO` |
+| 4C.7 | No psql: `select dados from auditoria where entidade_tipo = 'CONTRATO' and entidade_id = '{KA}' order by ocorrido_em;` | 2 linhas `ALTERACAO_POLITICA`: `politicaAnterior` nula → Padrão, e Padrão → PO |
+
 ## 5. Cadastro de usuários ([autenticação - 04] + [autenticação - 03])
 
 Pelo Swagger (tag **Identidade**), `POST /api/usuarios`:
