@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.gestaosla.backend.cadastro.api.ClienteConsulta;
 import com.gestaosla.backend.cadastro.api.ClienteInativado;
+import com.gestaosla.backend.shared.api.Paginas;
 import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 
 import lombok.RequiredArgsConstructor;
@@ -51,7 +52,7 @@ class ClienteService implements ClienteConsulta {
         if (ativo != null) {
             filtro = filtro.and((c, q, cb) -> cb.equal(c.get("ativo"), ativo));
         }
-        return clientes.findAll(filtro, pagina);
+        return clientes.findAll(filtro, Paginas.comDesempate(pagina));
     }
 
     // Idempotente: inativar de novo não repete o evento.

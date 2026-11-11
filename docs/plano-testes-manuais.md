@@ -110,6 +110,51 @@ Pelo Swagger (tag **Cadastro**), logado como gestor:
 | 4.12 | `GET /api/clientes?ativo=false` | Só CB, com `ativo: false` (continua no histórico) |
 | 4.13 | `POST /api/clientes/00000000-0000-0000-0000-000000000000/inativacao` | 404 `RECURSO_NAO_ENCONTRADO` |
 
+## 4A. Cadastro de contratos ([cadastro - 02])
+
+Logado como gestor. "Hoje" é a data do sistema no fuso `America/Fortaleza`.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 4A.1 | `POST /api/contratos` com `clienteId` = CA, `codigo: "CT-NORTE-01"`, início 1º de janeiro e fim 31 de dezembro do ano corrente | 201; anote o `id` (**KA**) |
+| 4A.2 | `POST /api/contratos` com `clienteId` = CA, `codigo: "CT-NORTE-00"`, vigência no ano passado inteiro | 201 (**KV**, vencido); RN-06: CA tem dois contratos |
+| 4A.3 | Repetir o 4A.1 | 409 `CODIGO_CONTRATO_JA_EXISTE` |
+| 4A.4 | `POST` com `codigo: "CT-X"`, início `2026-02-01` e fim `2026-01-31` | 400 `VALIDACAO`, `erros[0].campo: fimVigencia` |
+| 4A.5 | `POST` com `clienteId` = CB (inativo desde o 4.11), `codigo: "CT-SUL-01"` | 422 `CLIENTE_INATIVO` |
+| 4A.6 | `POST` com `clienteId: "00000000-0000-0000-0000-000000000000"` | 422 `CLIENTE_INEXISTENTE` |
+| 4A.7 | `GET /api/contratos?clienteId={CA}` | KV e KA, nessa ordem (por código) |
+| 4A.8 | `GET /api/contratos?clienteId={CA}&vigente=true` e depois `vigente=false` | Só KA; depois só KV |
+
+## 4B. Políticas de SLA versionadas ([cadastro - 03])
+
+Logado como gestor. Prazos em minutos de janela (540 = 1 dia útil).
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 4B.1 | `GET /api/politicas` | A política `Padrão` (seed), versão 1: alta 120/540/1080, normal 540/1620/2700, `prioridadePadrao: NORMAL`, `criadaPor: null` |
+| 4B.2 | `POST /api/politicas` com `nome: "Ouro"`, `prioridadePadrao: "ALTA"` e `prazos` `{"alta":{"resposta":60,"campo":300,"resolucao":900},"normal":{"resposta":300,"campo":900,"resolucao":1800}}` | 201, `versaoAtual.numero: 1`; anote o `id` (**PO**) |
+| 4B.3 | Repetir o 4B.2 | 409 `NOME_POLITICA_JA_EXISTE` |
+| 4B.4 | `POST /api/politicas` com outro nome e `alta.resposta` igual a `alta.campo` (ex.: 300 e 300) | 422 `ORDEM_PRAZOS_INVALIDA`, mensagem citando `ALTA` |
+| 4B.5 | `POST /api/politicas/{PO}/versoes` com `prioridadePadrao: "NORMAL"` e `normal.campo` maior que `normal.resolucao` | 422 `ORDEM_PRAZOS_INVALIDA`, citando `NORMAL` |
+| 4B.6 | `POST /api/politicas/{PO}/versoes` com os prazos do 4B.2 trocando `alta.resposta` para 90 | 201, `numero: 2` |
+| 4B.7 | `GET /api/politicas/{PO}/versoes` | Versões 2 e 1, nessa ordem; a 1 ainda com `alta.resposta: 60` |
+| 4B.8 | No psql: `update politica_sla_versao set resposta_alta = 1;` | Erro "Versão de política de SLA não pode ser alterada nem removida (RN-04)." |
+| 4B.9 | No psql: `select operacao, entidade_tipo, dados from auditoria where entidade_id = '{PO}';` | 2 linhas `ALTERACAO_POLITICA` / `POLITICA_SLA`, com `versao` 1 e 2 |
+
+## 4C. Política do contrato ([cadastro - 04])
+
+Logado como gestor; usa KA (4A.1) e PO (4B.2).
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 4C.1 | `GET /api/contratos?clienteId={CA}` | KA com `politicaId: null` (ainda não recebe chamados, RN-03) |
+| 4C.2 | `PUT /api/contratos/{KA}/politica` com `{"politicaId": "0199a000-0000-7000-8000-00000000c001"}` (Padrão) | 200, `politicaId` da Padrão |
+| 4C.3 | Repetir o 4C.2 | 200, sem novo registro de auditoria |
+| 4C.4 | `PUT /api/contratos/{KA}/politica` com `{"politicaId": "{PO}"}` | 200, `politicaId` = PO (substitui a Padrão) |
+| 4C.5 | `PUT /api/contratos/{KA}/politica` com um `politicaId` aleatório | 422 `POLITICA_INEXISTENTE` |
+| 4C.6 | `PUT /api/contratos/00000000-0000-0000-0000-000000000000/politica` com a Padrão | 404 `RECURSO_NAO_ENCONTRADO` |
+| 4C.7 | No psql: `select dados from auditoria where entidade_tipo = 'CONTRATO' and entidade_id = '{KA}' order by ocorrido_em;` | 2 linhas `ALTERACAO_POLITICA`: `politicaAnterior` nula → Padrão, e Padrão → PO |
+
 ## 5. Cadastro de usuários ([autenticação - 04] + [autenticação - 03])
 
 Pelo Swagger (tag **Identidade**), `POST /api/usuarios`:
@@ -166,6 +211,7 @@ Conectado como `postgres` (superusuário), o 6.2 e o 6.4 são barrados pelo trig
 | 7.3 | `GET /api/clientes`, `GET /api/usuarios` e `GET /api/tecnicos` | **403** `ACESSO_NEGADO` nos três (só gestor) |
 | 7.4 | `POST /api/usuarios` com qualquer corpo | **403** |
 | 7.5 | Logout no Swagger e no Keycloak (como no 7.1); login como `carla@norte.com.br` / `Teste@12345`; `GET /api/usuarios/me` | 200, `perfil: CLIENTE`, `clienteId` = id de CA |
+| 7.5a | Ainda como Carla: `GET /api/me/contratos` e depois `GET /api/contratos` | Só KA (o vencido KV não aparece) ([cadastro - 02]); depois **403** |
 | 7.6 | **Usuário inativo:** com a Carla ainda logada, no psql: `update usuario set ativo = false where email = 'carla@norte.com.br';` e repetir o `/me` | **401** `NAO_AUTENTICADO`, mesmo com o token ainda válido |
 | 7.7 | Voltar: `update usuario set ativo = true where email = 'carla@norte.com.br';` e repetir | 200 |
 | 7.8 | Ainda como Carla: `GET /api/usuarios` e `GET /api/tecnicos` | **403** `ACESSO_NEGADO` nos dois |
@@ -187,6 +233,37 @@ Faça logado como gestor. Cadastre antes um técnico descartável e anote o `id`
 | 7A.5 | Keycloak → **Users** → o técnico | **Enabled** desligado |
 | 7A.6 | psql: `select ativo from usuario where id = '<TD>';` e `select operacao, dados from auditoria where entidade_id = '<TD>';` | `ativo = f`; uma linha `INATIVACAO_USUARIO` |
 | 7A.7 | Inativar um cliente com usuários e repetir o 7A.5 e o 7A.6 para um deles | Conta desabilitada; auditoria com `ator_sub` nulo |
+
+## 7B. Topologia do RabbitMQ ([outbox - 02])
+
+Management em http://localhost:15672, com `RABBITMQ_USER`/`RABBITMQ_PASSWORD` de `.envs/.env.dev`. O ms-notificacoes não precisa estar rodando.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7B.1 | **Exchanges** | `notificacoes`, `notificacoes.dlx`, `evidencias` e `evidencias.dlx`, todas `direct` |
+| 7B.2 | **Queues and Streams** | As 6 filas; as DLQs de notificação com `x-message-ttl` 604800000; as 3 filas principais com `x-dead-letter-exchange` |
+| 7B.3 | Exchange `notificacoes` → **Publish message**, routing key `email`, *Delivery mode* persistente | `Message published.`; `notificacoes.email` com 1 mensagem |
+| 7B.4 | `docker compose ... restart rabbitmq` e conferir a fila | A mensagem continua lá |
+| 7B.5 | Fila `notificacoes.email` → **Purge Messages** | Fila vazia (limpeza do teste) |
+
+## 7C. Publicador da outbox ([outbox - 03])
+
+Nenhum módulo grava eventos ainda; o evento entra direto pelo psql (`<ID>` = um UUID qualquer):
+
+```sql
+insert into outbox_eventos (id, evento_id, tipo, exchange, routing_key, payload, criado_em)
+values (gen_random_uuid(), '<ID>', 'ATRIBUICAO', 'notificacoes', 'interna', '{"eventoId":"<ID>"}', now());
+```
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7C.1 | Inserir o evento e esperar 5 s | `publicado_em` preenchido; `notificacoes.interna` com 1 mensagem, `message_id` = `<ID>` |
+| 7C.2 | `docker compose ... stop rabbitmq`, inserir outro evento (routing key `email`) e esperar 10 s | `publicado_em` nulo, `tentativas` ≥ 1, `ultimo_erro` preenchido |
+| 7C.3 | `docker compose ... start rabbitmq` e esperar | O evento é publicado; `notificacoes.email` com 1 mensagem |
+| 7C.4 | Inserir um evento com routing key `inexistente` | Fica pendente com `ultimo_erro` "Sem fila de destino"; os eventos criados depois dele também ficam pendentes. Apague-o (`delete from outbox_eventos where evento_id = '<ID>'`) para o publicador seguir |
+| 7C.5 | Esvaziar as filas usadas (como no 7B.5) | Filas vazias |
+
+As métricas `outbox_*` estão em `/actuator/prometheus`, que hoje exige token.
 
 ## 8. Desfecho
 

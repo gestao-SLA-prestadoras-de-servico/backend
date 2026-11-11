@@ -43,7 +43,7 @@ O backend é um monólito modular. Cada módulo fica em `com.gestaosla.backend.<
 | ------------ | ------------------------------------------------------ |
 | `shared`     | Tipos e utilitários comuns a todos os módulos          |
 | `identidade` | Autenticação, usuários e permissões                    |
-| `cadastro`   | Cadastros base (clientes, contratos, prestadores)      |
+| `cadastro`   | Clientes, contratos e políticas de SLA versionadas     |
 | `chamado`    | Abertura e ciclo de vida dos chamados                  |
 | `sla`        | Regras de SLA, cálculo e controle de prazos            |
 | `evidencia`  | Evidências anexadas aos atendimentos                   |
@@ -87,7 +87,7 @@ CORS: só a origem `FRONTEND_URL`. Nos testes, `TokenTeste` assina tokens que pa
 
 ## Listagens paginadas
 
-Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400.
+Toda listagem recebe `?page=0&size=20&sort=campo,asc` (máximo de 100 itens por página) e responde no formato `PagedModel` do Spring Data: `{"content": [...], "page": {"size", "number", "totalElements", "totalPages"}}`. No controller: `return new PagedModel<>(pagina.map(Resposta::de));`. Campo de ordenação inexistente dá 400. No serviço, passe a página por `shared.api.Paginas.comDesempate(pagina)`: ela acrescenta o `id` à ordenação, e sem isso itens empatados (dois usuários com o mesmo nome) podem repetir ou sumir entre páginas.
 
 ## Edição concorrente
 
@@ -108,6 +108,57 @@ void reabrir(...) {
 
 Fora de transação, `registrar` falha; rotinas agendadas usam `Ator.SISTEMA`. A tabela é imutável também no banco: trigger rejeita `UPDATE`, `TRUNCATE` e `DELETE` de registro com menos de 5 anos.
 
+## Eventos para a mensageria (outbox)
+
+Evento destinado ao RabbitMQ é gravado na tabela `outbox_eventos` **na própria transação** da operação (RN-113), nunca publicado direto:
+
+```java
+@Transactional
+void atribuir(...) {
+    // ... altera o chamado
+    outbox.registrar(new EventoSaida(null, "ATRIBUICAO", "notificacoes", List.of("interna"),
+            Map.of("chamadoId", chamado.getId(), "titulo", chamado.getTitulo())));
+}
+```
+
+Fora de transação, `registrar` falha. `eventoId` nulo gera um novo; informe um quando ele precisa ser determinístico (violação de SLA, RN-54). Um `eventoId` já gravado é ignorado, sem erro. Cada routing key vira um registro com `eventoId` próprio, acrescentado ao payload. Exchanges e routing keys são as da seção [Topologia do RabbitMQ](#topologia-do-rabbitmq).
+
+O `PublicadorOutbox` (a cada `app.outbox.publicador.intervalo`, 5 s) lê os pendentes em ordem de `criado_em`, em lotes de 100, e publica cada um com confirmação do broker (`publisher-confirm-type=correlated`) e `mandatory=true`. Só marca `publicado_em` depois do confirm. Broker fora, devolução por falta de fila ou confirm que não chega em `espera-confirmacao` contam como falha: o evento fica pendente com `tentativas` e `ultimo_erro`, e o ciclo para. A mensagem sai com `messageId` = `eventoId`, `type` = tipo, JSON e entrega persistente. Entrega ao menos uma vez (RN-115): consumidor descarta repetições pelo `messageId`.
+
+Métricas (RF-64): `outbox_eventos_pendentes` e `outbox_pendente_mais_antigo_idade_seconds`, lidas do banco a cada coleta.
+
+### Notificações
+
+Notificação não usa `EventoSaida` direto: cada tipo é um record de `outbox.api.EventoNotificacao`, e os destinatários saem só do `MontadorDestinatarios` (sub de técnico ou gestor no canal interno, e-mail de contato do cliente no e-mail, RN-41):
+
+```java
+outbox.registrar(new EventoNotificacao.Atribuicao(new Chamado(chamado.getId(), chamado.getNumero()), chamado.getTitulo(),
+        destinatarios.internos(List.of(tecnicoSub))));
+// Violação: eventoId determinístico (RN-54).
+outbox.registrar(new EventoNotificacao.Violacao(..., destinatarios.internos(subs), Relogio.RESOLUCAO), eventoId);
+```
+
+O tipo define o canal (routing key `interna` ou `email`). Os JSON Schemas de cada tipo ficam em `contratos/notificacoes/`, compartilhados com o ms-notificacoes. São gerados dos records pelo `ContratoNotificacaoTest`, que os reescreve e falha quando o record muda: confira o diff e combine a mudança com a equipe do ms-notificacoes antes de commitar.
+
+## Topologia do RabbitMQ
+
+Exchanges, filas e DLQs ficam em `infra/rabbitmq/topologia.json`, **fonte única** compartilhada com o ms-notificacoes. O `rabbitmq-init` junta esse arquivo com o usuário de `.envs/` no `definitions.json` (ignorado pelo git, porque leva o hash da senha), e o broker o carrega no boot. Assim as filas existem antes de qualquer serviço subir, e nada publicado se perde por falta de fila.
+
+| Exchange (direct) | Routing key | Fila | DLQ (via exchange `.dlx`) |
+| --- | --- | --- | --- |
+| `notificacoes` | `email` | `notificacoes.email` | `notificacoes.email.dlq` (expira em 7 dias, RN-57) |
+| `notificacoes` | `interna` | `notificacoes.interna` | `notificacoes.interna.dlq` (expira em 7 dias, RN-57) |
+| `evidencias` | `processamento` | `evidencias.processamento` | `evidencias.processamento.dlq` (sem expiração) |
+
+- **Os serviços não declaram filas, exchanges nem bindings.** No backend, o `TopologiaRabbitArquiteturaTest` reprova qualquer `Declarable` (`Queue`, `Exchange`, `Binding`) ou builder: o `RabbitAdmin` os declararia com argumentos próprios.
+- **Mudança na topologia exige aprovação das duas equipes** (backend e ms-notificacoes). Mudar o argumento de uma fila existente no arquivo **não tem efeito**: a importação termina sem erro e a fila fica com o argumento antigo. A fila precisa ser apagada e recriada (ver `docs/tasks/outbox/outbox-02-topologia-rabbitmq.md`).
+
+## Dependência entre módulos e eventos
+
+- **Módulo que ainda não existe:** quem precisa dele declara uma porta no próprio `api` e a injeta como `Optional<Porta>`; o outro módulo a implementa depois, sem mudar quem a usa. Exemplo: `identidade.api.ChamadosDoTecnico`, implementada pela [chamado - 13].
+- **Usuário corrente num módulo de que o `identidade` depende** (ex.: `cadastro`): leia o campo por expressão, `@AuthenticationPrincipal(expression = "empresaClienteId") UUID empresa`, sem importar `UsuarioCorrente`. Importar o tipo cria ciclo entre os módulos, e o `ModularidadeTest` reprova. Exemplo: `cadastro.internal.ContratoController` (`GET /api/me/contratos`).
+- **Ouvinte que chama serviço externo** (Keycloak, e-mail) depois do commit: `@Async` + `@TransactionalEventListener`, como em `identidade.internal.ClienteInativadoListener`. Síncrono, ele seguraria a conexão da transação que publicou o evento durante toda a chamada. O evento não é persistido: se a aplicação cair no meio, o que faltou não é refeito (o desligamento normal espera as tarefas terminarem).
+
 ## Data e hora
 
 O sistema tem fuso único (`FUSO_HORARIO`, hoje `America/Fortaleza`), usado pela JVM, pela sessão JDBC, pelo Hibernate e pelo Postgres. Quem precisa da hora injeta `java.time.Clock` (bean do `shared`); `Instant.now()`, `LocalDateTime.now()` e similares sem o Clock reprovam o `RelogioArquiteturaTest`. Nos testes, `RelogioMutavel` substitui o Clock e avança o tempo sem esperar.
@@ -123,7 +174,7 @@ Todo erro sai como Problem Details (RFC 9457) com o campo `codigo`, tratado no `
 > Requisitos:
 >
 > - Docker
-> - Docker Compose 2.30 ou mais recente (usa `post_start`)
+> - Docker Compose 2.30 ou mais recente
 
 O projeto está dividido em três ambientes (desenvolvimento, testes e produção), abaixo estão as informações de como rodar cada um deles:
 
@@ -147,7 +198,7 @@ O ambiente sobe o backend e as dependências dele. O backend só inicia depois q
 | ---------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
 | Backend    | http://localhost:8080                          | `/actuator/health`                                                         |
 | PostgreSQL | só rede interna (`postgres:5432`)              | bancos `app_principal`, `notificacoes` e `keycloak`, um usuário por banco (`infra/postgres/init.sql`) |
-| RabbitMQ   | http://localhost:15672 (management)            | topologia de `infra/rabbitmq/definitions.json`                             |
+| RabbitMQ   | http://localhost:15672 (management)            | topologia de `infra/rabbitmq/topologia.json`                               |
 | MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
 | Keycloak   | http://localhost:8081                          | console admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`; realm `flowsla` importado de `infra/keycloak/realm-flowsla.json` |
 | Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
@@ -226,7 +277,7 @@ make integration-test
 
 ## Documentação por task
 
-Toda task entregue gera dois arquivos em `docs/`, com o mesmo nome (`<modulo>-<nn>-<descricao>.md`, ex.: `plataforma-03-padrao-schema-banco.md`):
+Toda task entregue gera dois arquivos em `docs/`, com o mesmo nome, numa pasta por módulo (`<modulo>/<modulo>-<nn>-<descricao>.md`, ex.: `plataforma/plataforma-03-padrao-schema-banco.md`):
 
 - `docs/tasks/`: contexto, tabela critério de aceite × solução, passos técnicos realizados, decisões e cuidados ao atualizar um ambiente existente.
 - `docs/testes/`: data e branch, tabela com o que foi testado, como, resultado esperado, resultado obtido e status, e o que ficou sem verificar.
@@ -237,12 +288,14 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 
 ```bash
 .
+├── contratos
+│   └── notificacoes # JSON Schemas das mensagens de notificação, gerados pelo ContratoNotificacaoTest
 ├── docs # Documentação das tasks do backend
 │   ├── convencoes-banco.md # Padrão de schema e migrações
 │   ├── erros-api.md # Formato dos erros e catálogo de códigos
 │   ├── openapi.json # Contrato da API, gerado pelo OpenApiContratoTest
-│   ├── tasks # O que cada task resolveu
-│   └── testes # Testes executados em cada task
+│   ├── tasks # O que cada task resolveu, uma pasta por módulo
+│   └── testes # Testes executados em cada task, uma pasta por módulo
 ├── Dockerfile
 ├── .dockerignore
 ├── .envs # Variáveis de ambiente do projeto
@@ -260,7 +313,9 @@ Convenções transversais ficam em arquivo próprio em `docs/` (ex.: `docs/conve
 │   ├── postgres
 │   │   └── init.sql # Bancos e usuários do PostgreSQL compartilhado
 │   ├── rabbitmq
-│   │   ├── definitions.json # Topologia do RabbitMQ
+│   │   ├── generate_definitions.py # Gera o definitions.json (usuário de .envs + topologia) a cada subida
+│   │   ├── rabbitmq.conf # Carrega o definitions.json no boot
+│   │   ├── topologia.json # Exchanges, filas e DLQs; fonte única com o ms-notificacoes
 │   │   └── enabled_plugins
 │   ├── docker-compose.dev.yml
 │   ├── docker-compose.prod.yml

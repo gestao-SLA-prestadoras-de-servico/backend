@@ -19,7 +19,7 @@ O FlowSLA é o backend de gestão de SLA para prestadoras de serviço: um monól
 1. **Não faça commit nem push.** O usuário faz isso. Criar ou renomear branch, só quando ele pedir.
 2. **Na dúvida, pergunte antes de implementar.** Vale para biblioteca, versão, abordagem e escopo, mesmo que a task pareça indicar o caminho. Só siga um padrão sem perguntar quando não houver alternativa razoável. Isso já deu errado: a autenticação-03 foi feita com uma biblioteca diferente da decidida, sem consulta.
 3. **Consulte as decisões antes de contrariá-las.** Elas ficam na seção "Decisões" de `docs/tasks/`. Exemplo: o retry usa Resilience4j, que substituiu o `@Retryable` da plataforma-01.
-4. **Toda task entregue gera dois arquivos** com o mesmo nome, `docs/tasks/<modulo>-<nn>-<descricao>.md` e `docs/testes/<modulo>-<nn>-<descricao>.md`. O nome do módulo vai sem acento. Use um par existente como modelo.
+4. **Toda task entregue gera dois arquivos** com o mesmo nome, `docs/tasks/<modulo>/<modulo>-<nn>-<descricao>.md` e `docs/testes/<modulo>/<modulo>-<nn>-<descricao>.md`, numa pasta por módulo. O nome do módulo vai sem acento, na pasta e no arquivo. Use um par existente como modelo.
 5. **Relate só o que aconteceu de verdade.** Teste que falhou é informado com a saída, e o que não foi verificado fica escrito como não verificado.
 6. **Nada de segredo em arquivo versionado.** Valores vêm de `.envs/`, e toda variável nova entra nos três `.envs/.env.*.example`.
 7. **Não apague dados sem perguntar.** `make run-dev-down` usa `down -v` e destrói os dados de dev.
@@ -97,10 +97,10 @@ Atualize junto com a task o que ela afetar:
 ## Git
 
 - A branch padrão é uma por módulo (`feat/plataforma`, `feat/auditoria`, `feat/cadastro`). As tasks recentes usam branches empilhadas por pedido do usuário, como `feat/autenticacao-06` a partir de `feat/autenticacao-05`. Se a branch da task não estiver clara, pergunte.
-- Quando o usuário pedir a mensagem de commit, **apenas mostre o texto**. O formato é o assunto em inglês, uma linha em branco e a lista em português. Sem a linha em branco, o git junta tudo no assunto:
+- Quando o usuário pedir a mensagem de commit, **apenas mostre o texto**. A mensagem é toda em português: o assunto, uma linha em branco e a lista. Só o prefixo (`feat:`, `fix:`) fica como está. Sem a linha em branco, o git junta tudo no assunto:
 
 ```text
-feat: <descrição em inglês> task: [modulo - nn] <título da task>
+feat: <descrição em português> task: [modulo - nn] <título da task>
 
 - <mudança>
 - <mudança>

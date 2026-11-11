@@ -8,9 +8,13 @@ import com.gestaosla.backend.shared.api.RegrasAcesso;
 @Configuration(proxyBeanMethods = false)
 class CadastroRegrasAcesso {
 
-    // Mesmo papel do @PreAuthorize do ClienteController.
+    // Mesmos papéis dos @PreAuthorize de ClienteController, ContratoController e PoliticaController.
     @Bean
     RegrasAcesso regrasCadastro() {
-        return rotas -> rotas.requestMatchers("/api/clientes", "/api/clientes/**").hasRole("GESTOR");
+        return rotas -> {
+            rotas.requestMatchers("/api/clientes", "/api/clientes/**", "/api/contratos", "/api/contratos/**",
+                    "/api/politicas", "/api/politicas/**").hasRole("GESTOR");
+            rotas.requestMatchers("/api/me/contratos").hasRole("CLIENTE");
+        };
     }
 }

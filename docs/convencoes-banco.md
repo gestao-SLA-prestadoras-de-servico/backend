@@ -33,6 +33,15 @@ CREATE TABLE exemplo (
 
 A trilha de auditoria (`auditoria`) **não** estende `EntidadeBase`: um registro que nunca é alterado não tem `updated_at`. Ela tem `id` (UUID v7) e `ocorrido_em` (`timestamptz`, vindo do `Clock`), que é a base dos 5 anos de retenção. Tabela imutável nova segue o mesmo modelo, com trigger que rejeita `UPDATE` (ver `V4__cria_auditoria.sql`).
 
+As versões de política de SLA (`politica_sla_versao`, RN-04) seguem o modelo: sem `updated_at`, com `criada_em` vindo do `Clock`, entidade `@Immutable` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` sem exceção (ver `V8__cria_politica_sla.sql`). Alterar a política é inserir uma versão nova.
+
+### Exceção: tabela de saída (`outbox_eventos`)
+
+- Nome no plural, por ser o da especificação (`docs/flowSLA.md`, seção 3.6).
+- Sem entidade JPA: a gravação usa `JdbcClient` com `INSERT ... ON CONFLICT (evento_id) DO NOTHING`, que o Hibernate só faria com `@SQLInsert` e sem conferir as linhas afetadas. O `id` é `UUID.randomUUID()`; a ordem de publicação vem de `criado_em` (do `Clock`), não do id.
+- Sem `created_at`/`updated_at`: `criado_em`, `publicado_em`, `tentativas` e `ultimo_erro` são o estado do evento.
+- Índice parcial `(criado_em) WHERE publicado_em IS NULL`: o publicador só lê os pendentes, e o índice não cresce com os já publicados.
+
 ## Datas
 
 - Toda data/hora é `timestamptz` no banco e `Instant` no Java. **Nunca** `timestamp` sem fuso nem `LocalDateTime`.
