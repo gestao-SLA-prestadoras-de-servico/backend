@@ -44,4 +44,8 @@ class Usuario extends EntidadeBase {
         this.clienteId = clienteId;
         this.ativo = true;
     }
+
+    void inativar() {
+        this.ativo = false;
+    }
 }

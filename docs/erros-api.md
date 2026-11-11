@@ -56,3 +56,7 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | `CLIENTE_INEXISTENTE` | Empresa cliente informada não existe (RF-09) |
 | `CLIENTE_INATIVO` | Empresa cliente inativa não aceita novo usuário (cadastro-01) |
 | `CLIENTE_NAO_PERMITIDO` | Técnico ou gestor informado com empresa cliente (RF-09) |
+| `SUBSTITUTO_OBRIGATORIO` | Técnico com chamados não finalizados inativado sem substituto (RN-133) |
+| `SUBSTITUTO_INVALIDO` | Substituto inexistente, inativo, não técnico ou o próprio inativado (RN-133) |
+| `AUTOINATIVACAO_NAO_PERMITIDA` | Gestor inativando a si mesmo (autenticação-06) |
+| `ULTIMO_GESTOR_ATIVO` | Inativação do último gestor ativo (autenticação-06) |

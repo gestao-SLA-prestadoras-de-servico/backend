@@ -174,6 +174,20 @@ Conectado como `postgres` (superusuário), o 6.2 e o 6.4 são barrados pelo trig
 | 7.11 | `GET /api/usuarios?perfil=ADMIN` | **400** `VALIDACAO` |
 | 7.12 | `GET /api/tecnicos?ativos=true` | 200, paginado; a Ana aparece com `sub`, `nome` e `chamadosNaoFinalizados: 0` |
 
+## 7A. Inativação de usuário ([autenticação - 06])
+
+Faça logado como gestor. Cadastre antes um técnico descartável e anote o `id` dele (`TD`); guarde também o `id` do gestor em `/api/usuarios/me`.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7A.1 | `POST /api/usuarios/{id do gestor}/inativacao` | **422** `AUTOINATIVACAO_NAO_PERMITIDA` |
+| 7A.2 | `POST /api/usuarios/{TD}/inativacao` com `{"substitutoId":"<TD>"}` | **422** `SUBSTITUTO_INVALIDO` |
+| 7A.3 | `POST /api/usuarios/{TD}/inativacao` sem corpo | 204 |
+| 7A.4 | Repetir o 7A.3 | 204, sem nova linha na auditoria |
+| 7A.5 | Keycloak → **Users** → o técnico | **Enabled** desligado |
+| 7A.6 | psql: `select ativo from usuario where id = '<TD>';` e `select operacao, dados from auditoria where entidade_id = '<TD>';` | `ativo = f`; uma linha `INATIVACAO_USUARIO` |
+| 7A.7 | Inativar um cliente com usuários e repetir o 7A.5 e o 7A.6 para um deles | Conta desabilitada; auditoria com `ator_sub` nulo |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |

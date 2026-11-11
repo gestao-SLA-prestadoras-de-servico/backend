@@ -61,7 +61,7 @@ class SegurancaConfig {
     // Mesmo papel dos @PreAuthorize de UsuarioController e TecnicoController. Caminho exato: /api/usuarios/me fica fora.
     @Bean
     RegrasAcesso regrasIdentidade() {
-        return rotas -> rotas.requestMatchers("/api/usuarios", "/api/tecnicos").hasRole("GESTOR");
+        return rotas -> rotas.requestMatchers("/api/usuarios", "/api/usuarios/*/inativacao", "/api/tecnicos").hasRole("GESTOR");
     }
 
     // Só o frontend chama a API pelo navegador. O nome do bean é o que o .cors() procura.
