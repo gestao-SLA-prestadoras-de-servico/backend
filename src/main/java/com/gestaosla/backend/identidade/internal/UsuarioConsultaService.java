@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.gestaosla.backend.identidade.api.UsuarioConsulta;
+import com.gestaosla.backend.shared.api.Paginas;
 import com.gestaosla.backend.shared.api.Papel;
 
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ class UsuarioConsultaService implements UsuarioConsulta {
         if (clienteId != null) {
             filtro = filtro.and((u, q, cb) -> cb.equal(u.get("clienteId"), clienteId));
         }
-        return usuarios.findAll(filtro, pagina);
+        return usuarios.findAll(filtro, Paginas.comDesempate(pagina));
     }
 
     @Override

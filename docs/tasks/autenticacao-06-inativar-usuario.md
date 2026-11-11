@@ -48,8 +48,28 @@ Usuários nunca são excluídos, porque auditoria e chamados apontam para eles. 
 - Nenhuma migração ou variável nova.
 - `spring.jpa.open-in-view=false` vale para a aplicação toda: acesso lazy fora de transação daria erro, se alguma entidade futura usar.
 - O contrato mudou: `POST /api/usuarios/{id}/inativacao` e o campo `id` em `GET /api/tecnicos`. O `docs/openapi.json` está atualizado.
-- A [chamado - 13] implementa `ChamadosDoTecnico`, sem mudança no identidade. Ela audita `TRANSFERENCIA_POR_INATIVACAO`.
-- A inativação de um cliente agora chama o Keycloak para cada usuário, na mesma requisição, depois do commit.
+- A [chamado - 13] implementa `ChamadosDoTecnico`, sem mudança no identidade: a inativação e a carga de `GET /api/tecnicos` já usam a porta. Ela audita `TRANSFERENCIA_POR_INATIVACAO`.
+- A inativação de um cliente responde logo; os usuários dele são inativados em seguida, em outra thread (ver Revisão).
+
+## Revisão (branch `fix/autenticacao-06-revisao`)
+
+Correções da revisão contra o `AGENTS.md`, feita depois da entrega.
+
+| # | Incongruência | Correção |
+| --- | --- | --- |
+| 1 | `InativacaoUsuarioServiceTest` fora de `unit/` e `integration/`: o CI não o rodava, e `ULTIMO_GESTOR_ATIVO` ficava sem teste no CI | Movido para `unit/`. O `InativacaoTestHelper` (em `identidade/internal`, no padrão do `KeycloakAdminTestHelper`) monta o serviço e expõe só tipos públicos. |
+| 2 | O ouvinte de `ClienteInativado` segurava uma conexão do banco durante as chamadas ao Keycloak (medido: 1 conexão ativa) | `@Async` + `@TransactionalEventListener`, com `@EnableAsync` no `shared.internal.AssincronoConfig`. O `REQUIRES_NEW` saiu: a thread nova não tem transação. |
+| 3 | Quatro mudanças passavam sem nenhum teste falhar: `@PreAuthorize`, revalidação de "já inativo", `substitutoId` na auditoria, transferência de quem não é técnico | `SegurancaArquiteturaTest` (ArchUnit) exige `@PreAuthorize` em todo endpoint, exceto `/me`; um teste para cada um dos outros três. |
+| 4 | Prova de que os testes pegam o erro sem registro | Registrada em `docs/testes`. |
+| 5 | Carga fixa em 0 no identidade, contrariando "sem mudança no identidade" | `GET /api/tecnicos` lê a carga de `ChamadosDoTecnico`, 0 sem o módulo. |
+| 6 | Conta apagada do Keycloak fazia a inativação responder 404 para um usuário existente | Teste escrito antes da correção, falhou com 404. Agora inativa só o registro local e avisa no log; sem conta, não tenta reabilitar. |
+| 7 | Inativação dos usuários do cliente presa à requisição e sem garantia | Assíncrona, por decisão do usuário. O desligamento normal espera as tarefas (`spring.task.execution.shutdown.await-termination`). Limite conhecido: queda da aplicação no meio perde o restante. |
+| 8 | Paginação ordenada só por nome repetia ou pulava empatados | `shared.api.Paginas.comDesempate` acrescenta o `id`; aplicado também em `ClienteService`, que tinha o mesmo problema. |
+| 9 | `README.md` sem os padrões novos | Seções sobre porta com `Optional`, ouvinte assíncrono e desempate. |
+| 10 | `ConsultaUsuarioTest` lia só a primeira página de técnicos | Percorre todas as páginas. |
+| 11 | Nome de teste que escondia a dependência do mock sem rollback | `shouldNotReenableAccountWhenRecordEndsInactive`, com comentário. |
+
+Mantidos, por decisão do usuário: a trava global e a exigência de que o substituto seja técnico.
 
 ## Como verificar
 

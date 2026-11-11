@@ -4,12 +4,14 @@ import static com.gestaosla.backend.TokenTeste.SUB_GESTOR;
 import static com.gestaosla.backend.TokenTeste.token;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.hasItem;
-import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -20,10 +22,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.gestaosla.backend.TestcontainersConfiguration;
+import com.gestaosla.backend.identidade.api.ChamadosDoTecnico;
 import com.gestaosla.backend.identidade.api.UsuarioConsulta;
+import com.jayway.jsonpath.JsonPath;
 
 /** O banco é compartilhado entre as classes de teste: cada filtro usa empresa própria, ou confere só a presença do que inseriu. */
 @SpringBootTest
@@ -42,6 +47,9 @@ class ConsultaUsuarioTest {
 
     @Autowired
     private UsuarioConsulta consulta;
+
+    @MockitoBean
+    private ChamadosDoTecnico chamados;
 
     @Test
     void shouldReturnProfileAndCompanyOfCurrentClient() throws Exception {
@@ -108,22 +116,57 @@ class ConsultaUsuarioTest {
     }
 
     @Test
-    void shouldListActiveTechniciansWithLoadByDefault() throws Exception {
+    void shouldListActiveTechniciansWithLoadFromTicketsPort() throws Exception {
         UUID ativo = usuario("TECNICO", true, null);
         UUID inativo = usuario("TECNICO", false, null);
+        when(chamados.contarNaoFinalizados(ativo)).thenReturn(3L);
 
-        mvc.perform(get("/api/tecnicos").param("ativos", "true").param("size", "100").header(HttpHeaders.AUTHORIZATION, GESTOR))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[*].sub", hasItem(ativo.toString())))
-                .andExpect(jsonPath("$.content[*].sub", not(hasItem(inativo.toString()))))
-                .andExpect(jsonPath("$.content[*].sub", not(hasItem(SUB_GESTOR))))
-                .andExpect(jsonPath("$.content[0].chamadosNaoFinalizados").value(0));
-        mvc.perform(get("/api/tecnicos").param("size", "100").header(HttpHeaders.AUTHORIZATION, GESTOR))
-                .andExpect(jsonPath("$.content[*].sub", hasItem(ativo.toString())))
-                .andExpect(jsonPath("$.content[*].sub", not(hasItem(inativo.toString()))));
-        mvc.perform(get("/api/tecnicos").param("ativos", "false").param("size", "100").header(HttpHeaders.AUTHORIZATION, GESTOR))
-                .andExpect(jsonPath("$.content[*].sub", hasItem(inativo.toString())))
-                .andExpect(jsonPath("$.content[*].sub", not(hasItem(ativo.toString()))));
+        List<Map<String, Object>> ativos = tecnicos("true");
+        assertThat(subs(ativos)).contains(ativo.toString()).doesNotContain(inativo.toString(), SUB_GESTOR);
+        assertThat(ativos).filteredOn(t -> t.get("sub").equals(ativo.toString()))
+                .singleElement().satisfies(t -> assertThat(t.get("chamadosNaoFinalizados")).isEqualTo(3));
+        assertThat(subs(tecnicos(null))).contains(ativo.toString()).doesNotContain(inativo.toString());
+        assertThat(subs(tecnicos("false"))).contains(inativo.toString()).doesNotContain(ativo.toString());
+    }
+
+    // 30 usuários com o mesmo nome, 7 por página: sem desempate pelo id, o banco pode repetir uns e pular outros.
+    @Test
+    void shouldNotRepeatOrSkipUsersWithSameNameAcrossPages() throws Exception {
+        UUID empresa = empresa();
+        List<String> inseridos = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            inseridos.add(usuarioComNome("Mesmo Nome", empresa).toString());
+        }
+
+        List<String> lidos = new ArrayList<>();
+        for (int pagina = 0; pagina < 5; pagina++) {
+            String json = mvc.perform(get("/api/usuarios").param("clienteId", empresa.toString()).param("size", "7")
+                    .param("page", String.valueOf(pagina)).header(HttpHeaders.AUTHORIZATION, GESTOR)).andReturn().getResponse().getContentAsString();
+            lidos.addAll(JsonPath.read(json, "$.content[*].sub"));
+        }
+
+        assertThat(lidos).containsExactlyInAnyOrderElementsOf(inseridos);
+    }
+
+    // Percorre todas as páginas: o banco é compartilhado e pode ter mais técnicos que uma página.
+    private List<Map<String, Object>> tecnicos(String ativos) throws Exception {
+        List<Map<String, Object>> todos = new ArrayList<>();
+        for (int pagina = 0; ; pagina++) {
+            var requisicao = get("/api/tecnicos").param("size", "100").param("page", String.valueOf(pagina))
+                    .header(HttpHeaders.AUTHORIZATION, GESTOR);
+            if (ativos != null) {
+                requisicao.param("ativos", ativos);
+            }
+            String json = mvc.perform(requisicao).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+            todos.addAll(JsonPath.read(json, "$.content"));
+            if (pagina + 1 >= JsonPath.<Integer>read(json, "$.page.totalPages")) {
+                return todos;
+            }
+        }
+    }
+
+    private static List<Object> subs(List<Map<String, Object>> tecnicos) {
+        return tecnicos.stream().map(t -> t.get("sub")).toList();
     }
 
     @Test
@@ -139,11 +182,20 @@ class ConsultaUsuarioTest {
 
     private UUID usuario(String perfil, boolean ativo, UUID empresa) {
         UUID sub = UUID.randomUUID();
+        inserir(sub, "Usuário " + sub, perfil, ativo, empresa);
+        return sub;
+    }
+
+    private UUID usuarioComNome(String nome, UUID empresa) {
+        UUID sub = UUID.randomUUID();
+        inserir(sub, nome, "CLIENTE", true, empresa);
+        return sub;
+    }
+
+    private void inserir(UUID sub, String nome, String perfil, boolean ativo, UUID empresa) {
         jdbc.update("""
                 insert into usuario (id, created_at, updated_at, sub, nome, email, perfil, ativo, cliente_id)
-                values (?, now(), now(), ?, ?, ?, ?, ?, ?)""",
-                UUID.randomUUID(), sub, "Usuário " + sub, sub + "@x.local", perfil, ativo, empresa);
-        return sub;
+                values (?, now(), now(), ?, ?, ?, ?, ?, ?)""", UUID.randomUUID(), sub, nome, sub + "@x.local", perfil, ativo, empresa);
     }
 
     private UUID empresa() {
