@@ -89,6 +89,19 @@ class ContratoService implements ContratoConsulta {
         return paraApi(versoes.findById(versaoId).orElseThrow(RecursoNaoEncontradoException::new));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PoliticaDoContrato politicaParaAbertura(UUID contratoId, UUID empresaClienteId) {
+        Contrato contrato = buscar(contratoId);
+        if (!contrato.getClienteId().equals(empresaClienteId)) {
+            throw new RecursoNaoEncontradoException();
+        }
+        if (!contrato.estaVigenteEm(LocalDate.now(clock))) {
+            throw new RegraNegocioException(CodigoErro.CONTRATO_FORA_VIGENCIA, "Contrato fora da vigência.");
+        }
+        return versaoVigenteDaPolitica(contratoId);
+    }
+
     private static PoliticaDoContrato paraApi(VersaoPolitica v) {
         return new PoliticaDoContrato(v.getPoliticaId(), v.getId(), v.getNumero(), v.getPrioridadePadrao(), v.getAlta(), v.getNormal());
     }

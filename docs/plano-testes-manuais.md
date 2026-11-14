@@ -265,6 +265,25 @@ values (gen_random_uuid(), '<ID>', 'ATRIBUICAO', 'notificacoes', 'interna', '{"e
 
 As métricas `outbox_*` estão em `/actuator/prometheus`, que hoje exige token.
 
+## 7D. Chamados: abertura, consulta e prioridade ([chamado - 03] a [chamado - 05])
+
+Usa KA (vigente, com a política PO desde o 4C.4), KV (vencido), UC (cliente de CA) e UT (técnico). Os prazos esperados dependem dos minutos da PO e da hora da abertura; confira-os pela regra da janela (segunda a sexta, 08h às 17h).
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7D.1 | Logado como **UC**: `POST /api/chamados` com `{"contratoId": "{KA}", "titulo": "Ar-condicionado parado", "descricao": "Não liga", "local": "Sala 3", "prioridadeSugerida": "ALTA"}` | 201; `numero`, `estado: ABERTO`, `prioridadeSugerida: ALTA`, `prioridade` = a padrão da PO; 3 `relogios` com `venceEm`. Anote o `id` (**CH**) |
+| 7D.2 | Como **UC**, o mesmo corpo com `contratoId` = KV | 422 `CONTRATO_FORA_VIGENCIA` |
+| 7D.3 | Como **UC**, `contratoId` de um contrato de CB (crie um no 4A, se preciso) | 404 `RECURSO_NAO_ENCONTRADO` |
+| 7D.4 | Como **UC**: `GET /api/chamados` e `GET /api/chamados/contagem` | Só os chamados de CA; `ABERTO` ≥ 1 |
+| 7D.5 | Como **UT**: `GET /api/chamados/{CH}` | 404 (não está atribuído a ele) |
+| 7D.6 | No psql: `update chamado set tecnico_sub = '<sub de UT>', estado = 'ATRIBUIDO' where id = '{CH}';` e repetir o 7D.5 | 200, sem `contratoId`, `politicaVersaoId` nem `prioridadePadrao` |
+| 7D.7 | Como gestor: `PUT /api/chamados/{CH}/prioridade` com `{"prioridade": "ALTA"}` (ou `NORMAL`, se a padrão da PO for ALTA) | 200; os relógios ainda correndo com os prazos da nova prioridade |
+| 7D.8 | Repetir o 7D.7 | 200, sem novo registro de auditoria `ALTERACAO_PRIORIDADE` |
+| 7D.9 | `GET /api/chamados/{CH}/historico` como gestor e como **UC** | Gestor: `ABERTURA` e `ALTERACAO_PRIORIDADE`; UC: só `ABERTURA` |
+| 7D.10 | Como gestor: `GET /api/chamados?clienteId={CA}&prioridade=ALTA` e `GET /api/chamados?sort=proximoVencimento,asc` | CH na primeira; na segunda, ordenados pelo prazo mais próximo |
+| 7D.11 | `GET /api/chamados/{CH}/sla` como gestor, **UC** e **UT** | 200 `{"apurado": false}` para os três (ainda não encerrado) |
+| 7D.12 | No psql: `update chamado set estado = 'RESOLVIDO' where id = '{CH}';` e repetir o 7D.7 | 422 `TRANSICAO_INVALIDA` |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |
@@ -280,4 +299,5 @@ Se `make` reclamar de permissão no `target/` (parte dele é do root, criada pel
 - **Compensação** (conta removida quando o banco falha) e **e-mail que falha depois do commit:** precisam de falha simulada; estão nos testes automáticos (`CadastroUsuarioTest`).
 - **Timeout e retry da Admin API do Keycloak:** precisam de um Keycloak lento; estão no `KeycloakAdminAdapterTest`.
 - **Swagger desligado** em test/prod: `OpenApiDesligadoTest`.
-- **SLA ([sla - 01] a [sla - 05]):** relógios, recálculo, reabertura e apuração só são acionados pelo módulo chamado, que ainda não existe; estão nos testes automáticos (`CalendarioJanelaTest`, `RelogiosSlaTest`, `ApuracaoSlaTest`). À mão dá para ver só que `GET /api/chamados/{id}/sla` com um id qualquer responde `{"apurado": false}` ao gestor e 404 ao cliente e ao técnico.
+- **SLA ([sla - 01] a [sla - 05]):** a abertura e a prioridade já acionam os relógios (seção 7D); a reabertura e a apuração ainda não têm operação que as acione e estão nos testes automáticos (`RelogiosSlaTest`, `ApuracaoSlaTest`, `ConsultaChamadoTest`).
+- **Transições, histórico de estado e atendimentos ([chamado - 01] e [chamado - 02]):** ainda não há endpoint que mude o estado nem crie atendimento (atribuição, reabertura e cancelamento são tasks futuras); estão no `ChamadoModeloTest` e no `AtendimentoChamadoTest`. Na seção 7D o estado é alterado por SQL só para exercitar as consultas.

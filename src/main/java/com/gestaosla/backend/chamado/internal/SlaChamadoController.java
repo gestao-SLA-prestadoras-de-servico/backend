@@ -2,7 +2,6 @@ package com.gestaosla.backend.chamado.internal;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -13,8 +12,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.gestaosla.backend.cadastro.api.Prioridade;
 import com.gestaosla.backend.identidade.api.UsuarioCorrente;
-import com.gestaosla.backend.shared.api.Papel;
-import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 import com.gestaosla.backend.shared.api.RespostasErro;
 import com.gestaosla.backend.sla.api.ApuracaoChamado;
 import com.gestaosla.backend.sla.api.ApuracaoSla;
@@ -36,34 +33,18 @@ import lombok.RequiredArgsConstructor;
 class SlaChamadoController {
 
     private final ApuracaoSla apuracoes;
+    private final ConsultaChamadoService consulta;
 
-    @Operation(summary = "Resultado de SLA do chamado", description = "Gestor vê qualquer chamado; cliente, só os da "
-            + "própria empresa; técnico, só os que encerrou como responsável. Chamado cancelado ou ainda não encerrado: "
+    @Operation(summary = "Resultado de SLA do chamado", description = "Para quem pode ver o chamado: gestor, todos; cliente, "
+            + "os da própria empresa; técnico, os atribuídos a ele. Chamado cancelado ou ainda não encerrado: "
             + "`apurado: false`.")
     @ApiResponse(responseCode = "200", description = "Apuração congelada no encerramento, ou `apurado: false`")
     @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
     @GetMapping("/api/chamados/{id}/sla")
     SlaResponse consultar(@PathVariable UUID id, @AuthenticationPrincipal UsuarioCorrente usuario) {
-        Optional<ApuracaoChamado> apuracao = apuracoes.consultarApuracao(id);
-        // ponytail: sem a entidade Chamado, o acesso sai dos dados da apuração. Sem apuração, só o gestor sabe que o
-        // chamado existe; quando o chamado for criado, a checagem passa a ser feita por ele.
-        if (apuracao.isEmpty()) {
-            if (usuario.papel() == Papel.GESTOR) {
-                return SlaResponse.SEM_APURACAO;
-            }
-            throw new RecursoNaoEncontradoException();
-        }
-        ApuracaoChamado a = apuracao.get();
-        boolean podeVer = switch (usuario.papel()) {
-            case GESTOR -> true;
-            case CLIENTE -> a.clienteId().equals(usuario.empresaClienteId());
-            case TECNICO -> usuario.sub().equals(a.tecnicoSub());
-        };
-        // RN-126: recurso de outro cliente responde 404, nunca 403.
-        if (!podeVer) {
-            throw new RecursoNaoEncontradoException();
-        }
-        return SlaResponse.de(a);
+        // RN-126: fora do escopo do usuário, o chamado responde como inexistente (404), nunca 403.
+        consulta.buscarVisivel(usuario, id);
+        return apuracoes.consultarApuracao(id).map(SlaResponse::de).orElse(SlaResponse.SEM_APURACAO);
     }
 
     /** {@code apurado: false} para chamado cancelado (RN-19) ou ainda não encerrado; os demais campos vêm nulos. */

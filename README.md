@@ -172,6 +172,8 @@ Todo prazo é contado em minutos da janela comercial (segunda a sexta, 08h às 1
 
 O estado do chamado só muda por `chamado.internal.TransicaoChamado.transicionar`: a entidade valida a transição (RN-10, `TRANSICAO_INVALIDA` fora dela) e a auditoria `MUDANCA_ESTADO` e o histórico são gravados na mesma transação. O histórico (`HistoricoChamado`) é a linha do tempo dos três perfis, com a visibilidade definida em `TipoEventoHistorico`; a auditoria continua só do gestor. Toda `Violacao` devolvida pelo sla vai para `NotificadorViolacao.notificar`, o único que grava `VIOLACAO` na outbox (gestores ativos + técnico atribuído, `eventoId` determinístico). Atendimentos: `AtendimentoService.criarPendente` e `interromperCorrente`, com no máximo um corrente por chamado (índice único parcial); o evidencia lê o corrente por `chamado.api.AtendimentoConsulta`.
 
+Consultas de chamado passam sempre pelo escopo do usuário (`ConsultaChamadoService`): gestor vê todos, cliente os da própria empresa, técnico os atribuídos a ele agora; fora do escopo é 404 (RN-126), e parâmetros como `clienteId` não ampliam nada. Outro módulo que precise saber se o usuário vê um chamado usa `chamado.api.AcessoChamado.podeAcessar`. Cada perfil tem a sua visão (`ChamadoGestor`, `ChamadoCliente`, `ChamadoTecnico`); a do técnico nunca leva contrato nem política.
+
 ## Erros da API
 
 Todo erro sai como Problem Details (RFC 9457) com o campo `codigo`, tratado no `shared.internal.GlobalExceptionHandler`. Regra de negócio: `throw new RegraNegocioException(CodigoErro.X, "mensagem")` (422); recurso inexistente ou de outro cliente: `throw new RecursoNaoEncontradoException()` (404). Status, códigos e catálogo em `docs/erros-api.md`.

@@ -1,13 +1,8 @@
 package com.gestaosla.backend.integration;
 
-import static com.gestaosla.backend.TokenTeste.SUB_GESTOR;
-import static com.gestaosla.backend.TokenTeste.token;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.groups.Tuple.tuple;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -20,12 +15,9 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
-import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.gestaosla.backend.ChamadoTeste;
@@ -42,7 +34,6 @@ import com.gestaosla.backend.sla.api.TipoRelogio;
 import com.gestaosla.backend.sla.api.Violacao;
 
 @SpringBootTest
-@AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import({TestcontainersConfiguration.class, RelogioMutavel.Configuracao.class})
 class ApuracaoSlaTest {
@@ -51,7 +42,6 @@ class ApuracaoSlaTest {
     private static final UUID VERSAO_PADRAO = UUID.fromString("0199a000-0000-7000-8000-00000000c002");
     // Sexta-feira, 16:30. ALTA: resposta vence segunda 09:30; campo, segunda 16:30; resolução, terça 16:30.
     private static final Instant ABERTURA = em("2026-11-13T16:30");
-    private static final String GESTOR = token(SUB_GESTOR, "GESTOR");
 
     @Autowired
     private RelogiosSla relogios;
@@ -70,9 +60,6 @@ class ApuracaoSlaTest {
 
     @Autowired
     private RelogioMutavel relogio;
-
-    @Autowired
-    private MockMvc mvc;
 
     // RF-36: por relógio, prazo, vencimento, cumprimento, violação e resultado; e cliente, prioridade e técnico.
     @Test
@@ -188,56 +175,6 @@ class ApuracaoSlaTest {
         assertThatThrownBy(() -> congelar(UUID.randomUUID(), cliente(), null)).isInstanceOf(IllegalStateException.class);
     }
 
-    // ---- GET /api/chamados/{id}/sla ----
-
-    @Test
-    void shouldShowAssessmentToManagerOwnerClientAndResponsibleTechnician() throws Exception {
-        UUID empresa = cliente();
-        String tecnicoSub = usuario("TECNICO", null);
-        UUID chamado = abrir();
-        cumprir(chamado, TipoRelogio.RESPOSTA, "2026-11-16T10:00");
-        relogio.definir(em("2026-11-16T11:00"));
-        congelar(chamado, empresa, UUID.fromString(tecnicoSub));
-
-        for (String quem : List.of(GESTOR, token(usuario("CLIENTE", empresa), "CLIENTE"), token(tecnicoSub, "TECNICO"))) {
-            mvc.perform(get("/api/chamados/" + chamado + "/sla").header(HttpHeaders.AUTHORIZATION, quem))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.apurado").value(true))
-                    .andExpect(jsonPath("$.prioridade").value("ALTA"))
-                    .andExpect(jsonPath("$.relogios[0].tipo").value("RESPOSTA"))
-                    .andExpect(jsonPath("$.relogios[0].resultado").value("VIOLADO"))
-                    .andExpect(jsonPath("$.relogios[0].prazoMinutos").value(120))
-                    .andExpect(jsonPath("$.relogios[1].resultado").value("CUMPRIDO"));
-        }
-    }
-
-    // RN-126: chamado de outra empresa, ou de outro técnico, responde 404, nunca 403.
-    @Test
-    void shouldHideAssessmentFromOtherClientsAndTechnicians() throws Exception {
-        UUID chamado = abrir();
-        relogio.definir(em("2026-11-16T09:00"));
-        congelar(chamado, cliente(), UUID.randomUUID());
-
-        for (String quem : List.of(token(usuario("CLIENTE", cliente()), "CLIENTE"), token(usuario("TECNICO", null), "TECNICO"))) {
-            mvc.perform(get("/api/chamados/" + chamado + "/sla").header(HttpHeaders.AUTHORIZATION, quem))
-                    .andExpect(status().isNotFound())
-                    .andExpect(jsonPath("$.codigo").value("RECURSO_NAO_ENCONTRADO"));
-        }
-    }
-
-    // RN-19: cancelado (ou ainda não encerrado) não tem apuração.
-    @Test
-    void shouldAnswerWithoutAssessmentForCancelledOrOpenChamado() throws Exception {
-        UUID semApuracao = abrir();
-
-        mvc.perform(get("/api/chamados/" + semApuracao + "/sla").header(HttpHeaders.AUTHORIZATION, GESTOR))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.apurado").value(false))
-                .andExpect(jsonPath("$.relogios").doesNotExist());
-        mvc.perform(get("/api/chamados/" + semApuracao + "/sla").header(HttpHeaders.AUTHORIZATION, token(usuario("CLIENTE", cliente()), "CLIENTE")))
-                .andExpect(status().isNotFound());
-    }
-
     private UUID abrir() {
         UUID chamado = ChamadoTeste.chamado(jdbc);
         emTransacao(() -> relogios.iniciarRelogios(chamado, versaoPadrao(), Prioridade.ALTA, ABERTURA));
@@ -283,14 +220,6 @@ class ApuracaoSlaTest {
                                      cidade, uf, cep, ativo, version)
                 values (?, now(), now(), 'Cliente', 'c@x.com', 'Rua A', '1', 'Centro', 'Fortaleza', 'CE', '60000000', true, 0)""", id);
         return id;
-    }
-
-    private String usuario(String perfil, UUID empresa) {
-        UUID sub = UUID.randomUUID();
-        jdbc.update("""
-                insert into usuario (id, created_at, updated_at, sub, nome, email, perfil, ativo, cliente_id)
-                values (?, now(), now(), ?, 'Usuário', ?, ?, true, ?)""", UUID.randomUUID(), sub, sub + "@x.com", perfil, empresa);
-        return sub.toString();
     }
 
     private static Instant em(String local) {

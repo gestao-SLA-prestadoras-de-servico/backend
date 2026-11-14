@@ -61,7 +61,7 @@ sequenceDiagram
     autonumber
     actor G as Gestor
     participant CAD as cadastro
-    participant CH as chamado (futuro)
+    participant CH as chamado
     actor C as Cliente
 
     G->>CAD: POST /api/clientes
@@ -71,7 +71,7 @@ sequenceDiagram
     C->>CAD: GET /api/me/contratos
     CAD-->>C: contratos vigentes da empresa
     C->>CH: abre chamado sob um contrato
-    CH->>CAD: ContratoConsulta.versaoVigenteDaPolitica(contratoId)
+    CH->>CAD: ContratoConsulta.politicaParaAbertura(contratoId, empresa)
     CAD-->>CH: versaoId + prazos + prioridade padrão
     Note over CH: guarda o versaoId: trocar a política depois não muda este chamado (RN-05)
 ```
@@ -335,17 +335,17 @@ Outros módulos só importam `com.gestaosla.backend.cadastro.api`.
 | `ClienteConsulta.emailContato(clienteId)` | E-mail de contato, destino dos e-mails do cliente (RN-08) | outbox (`MontadorDestinatarios`) |
 | `ClienteConsulta.estaAtivo(clienteId)` | Se o cliente aceita novo usuário, contrato ou chamado | identidade (cadastro de usuário) |
 | `ClienteInativado` (evento) | Publicado na transação que inativa o cliente | identidade (inativa os usuários do cliente) |
-| `ContratoConsulta.versaoVigenteDaPolitica(contratoId)` | Versão mais recente da política do contrato | chamado (abertura), quando existir |
+| `ContratoConsulta.politicaParaAbertura(contratoId, empresaClienteId)` | Confere empresa (404 se outra), vigência hoje (`CONTRATO_FORA_VIGENCIA`) e política (`CONTRATO_SEM_POLITICA`) e devolve a versão vigente | chamado (abertura, [chamado - 03]) |
+| `ContratoConsulta.versaoVigenteDaPolitica(contratoId)` | Versão mais recente da política do contrato | `politicaParaAbertura` |
 | `ContratoConsulta.versaoDaPolitica(versaoId)` | Uma versão específica, pelo id guardado no chamado; 404 se não existir | chamado (recálculo de prioridade e reabertura, que usam a versão da abertura) |
 | `PoliticaDoContrato` | `politicaId`, `versaoId`, `numero`, `prioridadePadrao`, `alta`, `normal` e `prazos(Prioridade)` | idem |
 | `Prioridade` (`ALTA`, `NORMAL`) e `Prazos` (`resposta`, `campo`, `resolucao`) | Tipos dos prazos em minutos | chamado e sla |
 
 Para o módulo chamado, na abertura:
 
-1. Conferir a vigência do contrato na data de abertura (RN-01, `CONTRATO_FORA_VIGENCIA`). A regra está em `Contrato.estaVigenteEm`; ainda não há consulta pública para ela, que deve entrar em `ContratoConsulta` junto com a task de abertura.
-2. Chamar `versaoVigenteDaPolitica(contratoId)`. `CONTRATO_SEM_POLITICA` já sai como 422 (RN-03).
-3. Guardar o `versaoId` no chamado e calcular os prazos com `prazos(prioridadePadrao)` até o gestor definir a prioridade (RN-16).
-4. Nunca ler a política de novo para um chamado já aberto: os prazos dele são os da versão guardada (RN-05).
+1. Chamar `politicaParaAbertura(contratoId, empresaClienteId)`, com a empresa do usuário autenticado. Ela confere a empresa (RN-126), a vigência de hoje (RN-01, `Contrato.estaVigenteEm`) e a política (RN-03).
+2. Guardar o `versaoId` no chamado e calcular os prazos com `prazos(prioridadePadrao)` até o gestor definir a prioridade (RN-16).
+3. Nunca ler a política de novo para um chamado já aberto: os prazos dele são os da versão guardada (RN-05).
 
 Ciclo entre módulos: o `identidade` já depende do `cadastro.api`, então o cadastro não importa `UsuarioCorrente`. Os controllers leem o usuário por expressão, como `@AuthenticationPrincipal(expression = "empresaClienteId")`. O `ModularidadeTest` reprova a importação.
 
@@ -374,6 +374,5 @@ Nada do cadastro é apagado: não existe remoção de cliente, contrato nem pol�
 
 - **Sem edição de contrato:** corrigir código ou vigência ainda não é possível pela API.
 - **Sem desvincular política:** só é possível trocar. Um contrato que recebeu política não volta a ficar sem.
-- **Vigência sem consulta pública:** o módulo chamado vai precisar dela (seção 4).
 - **Política sem desativação:** toda política continua disponível para vínculo.
 - **Endpoints verificados por testes de integração, não no dev com token real:** o realm não permite login direto. O roteiro manual está nas seções 4, 4A, 4B e 4C de `docs/plano-testes-manuais.md`.
