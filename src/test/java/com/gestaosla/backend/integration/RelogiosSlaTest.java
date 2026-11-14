@@ -21,19 +21,22 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.gestaosla.backend.RelogioMutavel;
 import com.gestaosla.backend.TestcontainersConfiguration;
 import com.gestaosla.backend.cadastro.api.ContratoConsulta;
 import com.gestaosla.backend.cadastro.api.PoliticaDoContrato;
+import com.gestaosla.backend.cadastro.api.Prazos;
 import com.gestaosla.backend.cadastro.api.Prioridade;
 import com.gestaosla.backend.sla.api.EstadoRelogio;
 import com.gestaosla.backend.sla.api.RelogioView;
 import com.gestaosla.backend.sla.api.RelogiosSla;
 import com.gestaosla.backend.sla.api.ResultadoCumprimento;
 import com.gestaosla.backend.sla.api.TipoRelogio;
+import com.gestaosla.backend.sla.api.Violacao;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@Import(TestcontainersConfiguration.class)
+@Import({TestcontainersConfiguration.class, RelogioMutavel.Configuracao.class})
 class RelogiosSlaTest {
 
     private static final ZoneId FORTALEZA = ZoneId.of("America/Fortaleza");
@@ -53,6 +56,9 @@ class RelogiosSlaTest {
 
     @Autowired
     private JdbcTemplate jdbc;
+
+    @Autowired
+    private RelogioMutavel relogio;
 
     // RF-30, RN-28, RN-64: os três prazos saem da versão e da prioridade, em minutos de janela, e são gravados.
     @Test
@@ -139,6 +145,144 @@ class RelogiosSlaTest {
                                          prazo_minutos, vence_em, version)
                 values (?, now(), now(), ?, 'CAMPO', 2, true, now(), 60, now(), 0)""", UUID.randomUUID(), chamado))
                 .isInstanceOf(DataIntegrityViolationException.class).hasMessageContaining("relogio_sla_ativo_uk");
+    }
+
+    // ---- [sla - 03] Recálculo por prioridade ----
+
+    // RF-31, RN-17, RN-18: só os que correm mudam, contando do próprio marco; o cumprido fica como estava.
+    @Test
+    void shouldRecalculateOnlyRunningClocksFromTheirStartMark() {
+        UUID chamado = abrir(Prioridade.NORMAL);
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESPOSTA, em("2026-11-16T10:00")));
+        relogio.definir(em("2026-11-16T11:00"));
+
+        List<Violacao> violacoes = emTransacao(() -> relogios.recalcularPorPrioridade(chamado, versaoPadrao(), Prioridade.ALTA));
+
+        assertThat(violacoes).isEmpty();
+        assertThat(relogios.relogiosAtivos(chamado)).extracting(RelogioView::tipo, RelogioView::prazoMinutos, RelogioView::venceEm)
+                .containsExactly(
+                        tuple(TipoRelogio.RESPOSTA, 540, em("2026-11-16T16:30")),   // cumprido: não muda
+                        tuple(TipoRelogio.CAMPO, 540, em("2026-11-16T16:30")),      // era 1620 (quarta)
+                        tuple(TipoRelogio.RESOLUCAO, 1080, em("2026-11-17T16:30"))); // era 2700 (sexta seguinte)
+    }
+
+    // Prazo novo que já passou: violado na hora, com o vencimento novo, e devolvido ao chamador.
+    @Test
+    void shouldViolateRightAwayWhenNewDeadlineIsAlreadyPast() {
+        UUID chamado = abrir(Prioridade.NORMAL);
+        relogio.definir(em("2026-11-17T10:00"));
+
+        List<Violacao> violacoes = emTransacao(() -> relogios.recalcularPorPrioridade(chamado, versaoPadrao(), Prioridade.ALTA));
+
+        assertThat(violacoes).extracting(Violacao::tipo, Violacao::violadaEm).containsExactlyInAnyOrder(
+                tuple(TipoRelogio.RESPOSTA, em("2026-11-16T09:30")),
+                tuple(TipoRelogio.CAMPO, em("2026-11-16T16:30")));
+        assertThat(relogios.relogiosAtivos(chamado)).extracting(RelogioView::estado)
+                .containsExactly(EstadoRelogio.VIOLADO, EstadoRelogio.VIOLADO, EstadoRelogio.CORRENDO);
+    }
+
+    @Test
+    void shouldNotRecalculateViolatedClock() {
+        UUID chamado = abrir(Prioridade.ALTA);
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESPOSTA, em("2026-11-16T10:00")));
+        relogio.definir(em("2026-11-16T11:00"));
+
+        emTransacao(() -> relogios.recalcularPorPrioridade(chamado, versaoPadrao(), Prioridade.NORMAL));
+
+        assertThat(relogios.relogiosAtivos(chamado).get(0)).satisfies(r -> {
+            assertThat(r.prazoMinutos()).isEqualTo(120);
+            assertThat(r.violadoEm()).isEqualTo(em("2026-11-16T09:30"));
+        });
+    }
+
+    // RN-05: o sla usa a versão que o chamador passa (a guardada no chamado); não busca a vigente.
+    @Test
+    void shouldRecalculateWithVersionGivenByCaller() {
+        UUID chamado = abrir(Prioridade.NORMAL);
+        PoliticaDoContrato guardada = new PoliticaDoContrato(UUID.randomUUID(), UUID.randomUUID(), 1, Prioridade.NORMAL,
+                new Prazos(60, 120, 180), new Prazos(600, 1200, 1800));
+        relogio.definir(ABERTURA);
+
+        emTransacao(() -> relogios.recalcularPorPrioridade(chamado, guardada, Prioridade.ALTA));
+
+        assertThat(relogios.relogiosAtivos(chamado)).extracting(RelogioView::prazoMinutos).containsExactly(60, 120, 180);
+    }
+
+    // ---- [sla - 04] Reabertura ----
+
+    // RF-32, RN-96, RN-97: CAMPO e RESOLUCAO recomeçam no ciclo 2 com o marco da reabertura; RESPOSTA não muda.
+    @Test
+    void shouldRestartFieldAndResolutionClocksOnReopening() {
+        UUID chamado = abrir(Prioridade.ALTA);
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESPOSTA, em("2026-11-16T09:00")));
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.CAMPO, em("2026-11-16T15:00")));
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESOLUCAO, em("2026-11-17T10:00")));
+        Instant reabertura = em("2026-11-18T10:00");
+
+        List<Violacao> violacoes = emTransacao(() -> relogios.reiniciarParaReabertura(chamado, versaoPadrao(), Prioridade.ALTA, reabertura));
+
+        assertThat(violacoes).isEmpty();
+        assertThat(relogios.relogiosAtivos(chamado))
+                .extracting(RelogioView::tipo, RelogioView::ciclo, RelogioView::marcoInicial, RelogioView::venceEm, RelogioView::estado)
+                .containsExactly(
+                        tuple(TipoRelogio.RESPOSTA, 1, ABERTURA, em("2026-11-16T09:30"), EstadoRelogio.CUMPRIDO),
+                        tuple(TipoRelogio.CAMPO, 2, reabertura, em("2026-11-19T10:00"), EstadoRelogio.CORRENDO),
+                        tuple(TipoRelogio.RESOLUCAO, 2, reabertura, em("2026-11-20T10:00"), EstadoRelogio.CORRENDO));
+        assertThat(relogios.historico(chamado)).extracting(RelogioView::tipo, RelogioView::ciclo, RelogioView::ativo)
+                .containsExactly(
+                        tuple(TipoRelogio.RESPOSTA, 1, true),
+                        tuple(TipoRelogio.CAMPO, 1, false),
+                        tuple(TipoRelogio.CAMPO, 2, true),
+                        tuple(TipoRelogio.RESOLUCAO, 1, false),
+                        tuple(TipoRelogio.RESOLUCAO, 2, true));
+        assertThat(relogios.historico(chamado).get(1).cumpridoEm()).isEqualTo(em("2026-11-16T15:00"));
+    }
+
+    // RN-54: violação do campo no ciclo 1 e no ciclo 2 têm marcos diferentes, então são avisos diferentes.
+    @Test
+    void shouldTreatViolationsOfDifferentCyclesAsDifferentEvents() {
+        UUID chamado = abrir(Prioridade.ALTA);
+        Violacao ciclo1 = emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.CAMPO, em("2026-11-17T09:00"))).violacao().orElseThrow();
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESOLUCAO, em("2026-11-17T10:00")));
+        emTransacao(() -> relogios.reiniciarParaReabertura(chamado, versaoPadrao(), Prioridade.ALTA, em("2026-11-18T10:00")));
+
+        Violacao ciclo2 = emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.CAMPO, em("2026-11-20T09:00"))).violacao().orElseThrow();
+
+        assertThat(ciclo1.ciclo()).isEqualTo(1);
+        assertThat(ciclo2.ciclo()).isEqualTo(2);
+        assertThat(ciclo1.marcoInicial()).isEqualTo(ABERTURA);
+        assertThat(ciclo2.marcoInicial()).isEqualTo(em("2026-11-18T10:00"));
+        assertThat(ciclo2.violadaEm()).isEqualTo(em("2026-11-19T10:00"));
+    }
+
+    // Depois da reabertura, o recálculo conta do marco da reabertura, não da abertura.
+    @Test
+    void shouldRecalculateFromReopeningMark() {
+        UUID chamado = abrir(Prioridade.NORMAL);
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESPOSTA, em("2026-11-16T10:00")));
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.CAMPO, em("2026-11-17T10:00")));
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESOLUCAO, em("2026-11-18T10:00")));
+        emTransacao(() -> relogios.reiniciarParaReabertura(chamado, versaoPadrao(), Prioridade.NORMAL, em("2026-11-18T10:00")));
+        relogio.definir(em("2026-11-18T11:00"));
+
+        emTransacao(() -> relogios.recalcularPorPrioridade(chamado, versaoPadrao(), Prioridade.ALTA));
+
+        assertThat(relogios.relogiosAtivos(chamado)).extracting(RelogioView::tipo, RelogioView::venceEm).containsExactly(
+                tuple(TipoRelogio.RESPOSTA, em("2026-11-16T16:30")),   // cumprido: não muda
+                tuple(TipoRelogio.CAMPO, em("2026-11-19T10:00")),      // reabertura (quarta 10:00) + 540
+                tuple(TipoRelogio.RESOLUCAO, em("2026-11-20T10:00")));
+    }
+
+    // Campo nunca cumprido e já vencido na reabertura: a violação é marcada ao encerrar o ciclo.
+    @Test
+    void shouldReturnPendingViolationOfClosedCycle() {
+        UUID chamado = abrir(Prioridade.ALTA);
+        emTransacao(() -> relogios.cumprir(chamado, TipoRelogio.RESOLUCAO, em("2026-11-16T10:00")));
+
+        List<Violacao> violacoes = emTransacao(() -> relogios.reiniciarParaReabertura(chamado, versaoPadrao(), Prioridade.ALTA, em("2026-11-18T10:00")));
+
+        assertThat(violacoes).extracting(Violacao::tipo, Violacao::ciclo, Violacao::violadaEm)
+                .containsExactly(tuple(TipoRelogio.CAMPO, 1, em("2026-11-16T16:30")));
     }
 
     private UUID abrir(Prioridade prioridade) {

@@ -19,6 +19,50 @@
     "name" : "Cadastro"
   } ],
   "paths" : {
+    "/api/chamados/{id}/sla" : {
+      "get" : {
+        "description" : "Gestor vê qualquer chamado; cliente, só os da própria empresa; técnico, só os que encerrou como responsável. Chamado cancelado ou ainda não encerrado: `apurado: false`.",
+        "operationId" : "consultar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SlaResponse"
+                }
+              }
+            },
+            "description" : "Apuração congelada no encerramento, ou `apurado: false`"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Resultado de SLA do chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
     "/api/clientes" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100); inclui inativos.",
@@ -1607,6 +1651,60 @@
           "type" : {
             "type" : "string",
             "example" : "about:blank"
+          }
+        }
+      },
+      "Relogio" : {
+        "type" : "object",
+        "properties" : {
+          "cumpridoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "prazoMinutos" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "resultado" : {
+            "type" : "string",
+            "enum" : [ "CUMPRIDO", "VIOLADO" ]
+          },
+          "tipo" : {
+            "type" : "string",
+            "enum" : [ "RESPOSTA", "CAMPO", "RESOLUCAO" ]
+          },
+          "venceEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "violadoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "violouEmCicloAnterior" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "SlaResponse" : {
+        "type" : "object",
+        "properties" : {
+          "apurado" : {
+            "type" : "boolean"
+          },
+          "congeladaEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "prioridade" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "relogios" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Relogio"
+            }
           }
         }
       },

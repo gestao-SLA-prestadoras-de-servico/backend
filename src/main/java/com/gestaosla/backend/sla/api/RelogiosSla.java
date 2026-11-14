@@ -29,6 +29,26 @@ public interface RelogiosSla {
      */
     ResultadoCumprimento cumprir(UUID chamadoId, TipoRelogio tipo, Instant instante);
 
+    /**
+     * Recalcula os relógios ainda correndo quando a prioridade é definida ou alterada (RF-31, RN-17): novo prazo da
+     * versão informada, contado do marco inicial vigente de cada relógio. Cumpridos, violados e inativos não mudam
+     * (RN-18). A versão é a guardada no chamado ({@code ContratoConsulta.versaoDaPolitica}), não a vigente do contrato.
+     *
+     * @return violações marcadas agora, quando o novo vencimento já passou; o chamador grava os avisos
+     */
+    List<Violacao> recalcularPorPrioridade(UUID chamadoId, PoliticaDoContrato versao, Prioridade novaPrioridade);
+
+    /**
+     * Reabertura (RF-32, RN-96, RN-97): encerra o ciclo atual de CAMPO e RESOLUCAO, que fica como histórico, e cria o
+     * ciclo seguinte com o marco na reabertura. RESPOSTA não muda.
+     *
+     * @return violações do ciclo encerrado que ainda não tinham sido marcadas (prazo vencido sem a rotina ter passado)
+     */
+    List<Violacao> reiniciarParaReabertura(UUID chamadoId, PoliticaDoContrato versao, Prioridade prioridade, Instant instante);
+
     /** Relógios ativos do chamado (um por tipo), com o estado derivado. Vazio se o chamado não tem relógios. */
     List<RelogioView> relogiosAtivos(UUID chamadoId);
+
+    /** Todos os relógios do chamado, ativos e de ciclos anteriores, por tipo e ciclo. */
+    List<RelogioView> historico(UUID chamadoId);
 }

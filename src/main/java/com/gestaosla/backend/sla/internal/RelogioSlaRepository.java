@@ -13,4 +13,6 @@ interface RelogioSlaRepository extends JpaRepository<RelogioSla, UUID> {
     Optional<RelogioSla> findByChamadoIdAndTipoAndAtivoTrue(UUID chamadoId, TipoRelogio tipo);
 
     List<RelogioSla> findByChamadoIdAndAtivoTrue(UUID chamadoId);
+
+    List<RelogioSla> findByChamadoId(UUID chamadoId);
 }

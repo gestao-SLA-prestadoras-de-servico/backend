@@ -87,6 +87,36 @@ public class RelogioSla extends EntidadeBase {
         return Optional.of(new Violacao(chamadoId, tipo, ciclo, marcoInicial, violadoEm));
     }
 
+    /** Ativo, sem cumprimento e sem violação: o único estado em que o prazo ainda pode mudar (RN-18). */
+    public boolean correndo() {
+        return ativo && cumpridoEm == null && violadoEm == null;
+    }
+
+    /**
+     * Novo prazo por mudança de prioridade, contado do marco inicial vigente (RN-17). Se o novo vencimento já passou,
+     * a violação é marcada na hora, com o vencimento novo como horário do estouro.
+     *
+     * @throws IllegalStateException relógio cumprido, violado ou inativo: esses prazos não mudam (RN-18)
+     */
+    public Optional<Violacao> recalcular(int novoPrazoMinutos, Instant novoVenceEm, Instant agora) {
+        if (!correndo()) {
+            throw new IllegalStateException("Relógio " + tipo + " do ciclo " + ciclo + " não está correndo.");
+        }
+        prazoMinutos = novoPrazoMinutos;
+        venceEm = novoVenceEm;
+        return agora.isAfter(venceEm) ? marcarViolacao() : Optional.empty();
+    }
+
+    /**
+     * Encerra o ciclo na reabertura (RN-96): o relógio fica como histórico. Se ainda corria com o prazo já vencido, a
+     * violação é marcada antes, para não se perder entre duas passadas da rotina de 15 minutos.
+     */
+    public Optional<Violacao> encerrarCiclo(Instant instante) {
+        Optional<Violacao> violacao = correndo() && instante.isAfter(venceEm) ? marcarViolacao() : Optional.empty();
+        ativo = false;
+        return violacao;
+    }
+
     /** Violado continua VIOLADO mesmo se cumprido depois (RN-69). */
     public EstadoRelogio estado() {
         if (violadoEm != null) {

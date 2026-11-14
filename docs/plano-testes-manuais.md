@@ -280,3 +280,4 @@ Se `make` reclamar de permissão no `target/` (parte dele é do root, criada pel
 - **Compensação** (conta removida quando o banco falha) e **e-mail que falha depois do commit:** precisam de falha simulada; estão nos testes automáticos (`CadastroUsuarioTest`).
 - **Timeout e retry da Admin API do Keycloak:** precisam de um Keycloak lento; estão no `KeycloakAdminAdapterTest`.
 - **Swagger desligado** em test/prod: `OpenApiDesligadoTest`.
+- **SLA ([sla - 01] a [sla - 05]):** relógios, recálculo, reabertura e apuração só são acionados pelo módulo chamado, que ainda não existe; estão nos testes automáticos (`CalendarioJanelaTest`, `RelogiosSlaTest`, `ApuracaoSlaTest`). À mão dá para ver só que `GET /api/chamados/{id}/sla` com um id qualquer responde `{"apurado": false}` ao gestor e 404 ao cliente e ao técnico.

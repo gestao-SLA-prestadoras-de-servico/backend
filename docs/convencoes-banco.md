@@ -31,13 +31,15 @@ CREATE TABLE exemplo (
 
 ### Referência a tabela que ainda não existe
 
-Coluna que aponta para uma tabela de um módulo ainda não implementado nasce **sem FK**, com um comentário na migração dizendo isso. A FK é acrescentada pela migração que criar a tabela de destino. Hoje: `relogio_sla.chamado_id` (V10), à espera da tabela `chamado`.
+Coluna que aponta para uma tabela de um módulo ainda não implementado nasce **sem FK**, com um comentário na migração dizendo isso. A FK é acrescentada pela migração que criar a tabela de destino. Hoje: `relogio_sla.chamado_id` (V10) e `apuracao_sla.chamado_id` (V11), à espera da tabela `chamado`.
 
 ### Exceção: registros imutáveis
 
 A trilha de auditoria (`auditoria`) **não** estende `EntidadeBase`: um registro que nunca é alterado não tem `updated_at`. Ela tem `id` (UUID v7) e `ocorrido_em` (`timestamptz`, vindo do `Clock`), que é a base dos 5 anos de retenção. Tabela imutável nova segue o mesmo modelo, com trigger que rejeita `UPDATE` (ver `V4__cria_auditoria.sql`).
 
 As versões de política de SLA (`politica_sla_versao`, RN-04) seguem o modelo: sem `updated_at`, com `criada_em` vindo do `Clock`, entidade `@Immutable` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` sem exceção (ver `V8__cria_politica_sla.sql`). Alterar a política é inserir uma versão nova.
+
+A apuração de SLA (`apuracao_sla`, RN-68) segue o mesmo modelo: `@Immutable`, `congelada_em` vindo do `Clock` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` (ver `V11__cria_apuracao_sla.sql`).
 
 ### Exceção: tabela de saída (`outbox_eventos`)
 
