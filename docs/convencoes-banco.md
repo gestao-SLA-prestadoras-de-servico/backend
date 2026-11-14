@@ -29,6 +29,10 @@ CREATE TABLE exemplo (
 );
 ```
 
+### Referência a tabela que ainda não existe
+
+Coluna que aponta para uma tabela de um módulo ainda não implementado nasce **sem FK**, com um comentário na migração dizendo isso. A FK é acrescentada pela migração que criar a tabela de destino. Hoje: `relogio_sla.chamado_id` (V10), à espera da tabela `chamado`.
+
 ### Exceção: registros imutáveis
 
 A trilha de auditoria (`auditoria`) **não** estende `EntidadeBase`: um registro que nunca é alterado não tem `updated_at`. Ela tem `id` (UUID v7) e `ocorrido_em` (`timestamptz`, vindo do `Clock`), que é a base dos 5 anos de retenção. Tabela imutável nova segue o mesmo modelo, com trigger que rejeita `UPDATE` (ver `V4__cria_auditoria.sql`).

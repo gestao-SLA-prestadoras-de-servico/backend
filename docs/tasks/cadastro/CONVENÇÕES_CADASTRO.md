@@ -336,6 +336,7 @@ Outros módulos só importam `com.gestaosla.backend.cadastro.api`.
 | `ClienteConsulta.estaAtivo(clienteId)` | Se o cliente aceita novo usuário, contrato ou chamado | identidade (cadastro de usuário) |
 | `ClienteInativado` (evento) | Publicado na transação que inativa o cliente | identidade (inativa os usuários do cliente) |
 | `ContratoConsulta.versaoVigenteDaPolitica(contratoId)` | Versão mais recente da política do contrato | chamado (abertura), quando existir |
+| `ContratoConsulta.versaoDaPolitica(versaoId)` | Uma versão específica, pelo id guardado no chamado; 404 se não existir | chamado (recálculo de prioridade e reabertura, que usam a versão da abertura) |
 | `PoliticaDoContrato` | `politicaId`, `versaoId`, `numero`, `prioridadePadrao`, `alta`, `normal` e `prazos(Prioridade)` | idem |
 | `Prioridade` (`ALTA`, `NORMAL`) e `Prazos` (`resposta`, `campo`, `resolucao`) | Tipos dos prazos em minutos | chamado e sla |
 

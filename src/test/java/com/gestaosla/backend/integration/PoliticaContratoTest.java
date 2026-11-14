@@ -125,6 +125,26 @@ class PoliticaContratoTest {
                 .containsExactly(">" + POLITICA_PADRAO, POLITICA_PADRAO + ">" + ouro);
     }
 
+    // A versão guardada no chamado continua acessível depois de a política ganhar versões novas (RN-05).
+    @Test
+    void shouldFindSpecificPolicyVersionById() throws Exception {
+        UUID politica = politica();
+        UUID contrato = contrato();
+        vincular(contrato, politica);
+        UUID v1 = consulta.versaoVigenteDaPolitica(contrato).versaoId();
+        mvc.perform(post("/api/politicas/" + politica + "/versoes").header(HttpHeaders.AUTHORIZATION, GESTOR)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"prioridadePadrao\":\"ALTA\",\"prazos\":" + PRAZOS + "}"))
+                .andExpect(status().isCreated());
+
+        PoliticaDoContrato guardada = consulta.versaoDaPolitica(v1);
+
+        assertThat(guardada.numero()).isEqualTo(1);
+        assertThat(guardada.politicaId()).isEqualTo(politica);
+        assertThat(guardada.prioridadePadrao()).isEqualTo(Prioridade.NORMAL);
+        assertThat(consulta.versaoDaPolitica(VERSAO_PADRAO).prazos(Prioridade.ALTA)).isEqualTo(new Prazos(120, 540, 1080));
+        assertThatThrownBy(() -> consulta.versaoDaPolitica(UUID.randomUUID())).isInstanceOf(RecursoNaoEncontradoException.class);
+    }
+
     // RN-03: contrato sem política não recebe chamados; o chamado descobre pela consulta.
     @Test
     void shouldRejectLookupOfContractWithoutPolicy() {
