@@ -28,6 +28,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.gestaosla.backend.ChamadoTeste;
 import com.gestaosla.backend.RelogioMutavel;
 import com.gestaosla.backend.TestcontainersConfiguration;
 import com.gestaosla.backend.cadastro.api.ContratoConsulta;
@@ -170,7 +171,7 @@ class ApuracaoSlaTest {
         UUID versao = UUID.randomUUID();
         jdbc.update("insert into politica_sla (id, created_at, updated_at, nome) values (?, now(), now(), ?)", politica, "Apuração " + politica);
         inserirVersao(politica, versao, 1, 60);
-        UUID chamado = UUID.randomUUID();
+        UUID chamado = ChamadoTeste.chamado(jdbc);
         emTransacao(() -> relogios.iniciarRelogios(chamado, contratos.versaoDaPolitica(versao), Prioridade.ALTA, ABERTURA));
         relogio.definir(em("2026-11-16T08:30"));
         congelar(chamado, cliente(), null);
@@ -238,7 +239,7 @@ class ApuracaoSlaTest {
     }
 
     private UUID abrir() {
-        UUID chamado = UUID.randomUUID();
+        UUID chamado = ChamadoTeste.chamado(jdbc);
         emTransacao(() -> relogios.iniciarRelogios(chamado, versaoPadrao(), Prioridade.ALTA, ABERTURA));
         return chamado;
     }

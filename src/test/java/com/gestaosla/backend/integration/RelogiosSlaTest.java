@@ -21,6 +21,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.gestaosla.backend.ChamadoTeste;
 import com.gestaosla.backend.RelogioMutavel;
 import com.gestaosla.backend.TestcontainersConfiguration;
 import com.gestaosla.backend.cadastro.api.ContratoConsulta;
@@ -63,8 +64,8 @@ class RelogiosSlaTest {
     // RF-30, RN-28, RN-64: os três prazos saem da versão e da prioridade, em minutos de janela, e são gravados.
     @Test
     void shouldStartThreeClocksWithDeadlinesFromPolicyVersionAndPriority() {
-        UUID alta = UUID.randomUUID();
-        UUID normal = UUID.randomUUID();
+        UUID alta = ChamadoTeste.chamado(jdbc);
+        UUID normal = ChamadoTeste.chamado(jdbc);
 
         emTransacao(() -> relogios.iniciarRelogios(alta, versaoPadrao(), Prioridade.ALTA, ABERTURA));
         emTransacao(() -> relogios.iniciarRelogios(normal, versaoPadrao(), Prioridade.NORMAL, ABERTURA));
@@ -127,7 +128,7 @@ class RelogiosSlaTest {
     // A escrita roda na transação do chamado; sozinha, não grava nada.
     @Test
     void shouldRequireCallerTransaction() {
-        UUID chamado = UUID.randomUUID();
+        UUID chamado = ChamadoTeste.chamado(jdbc);
 
         assertThatThrownBy(() -> relogios.iniciarRelogios(chamado, versaoPadrao(), Prioridade.ALTA, ABERTURA))
                 .isInstanceOf(IllegalTransactionStateException.class);
@@ -286,7 +287,7 @@ class RelogiosSlaTest {
     }
 
     private UUID abrir(Prioridade prioridade) {
-        UUID chamado = UUID.randomUUID();
+        UUID chamado = ChamadoTeste.chamado(jdbc);
         emTransacao(() -> relogios.iniciarRelogios(chamado, versaoPadrao(), prioridade, ABERTURA));
         return chamado;
     }

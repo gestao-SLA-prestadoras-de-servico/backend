@@ -168,6 +168,10 @@ O sistema tem fuso único (`FUSO_HORARIO`, hoje `America/Fortaleza`), usado pela
 
 Todo prazo é contado em minutos da janela comercial (segunda a sexta, 08h às 17h, no fuso do sistema; feriado conta como dia útil). Some e meça sempre pelo `sla.api.CalendarioJanela` (`adicionarMinutos`, `minutosUteisEntre`), nunca com `plusMinutes` ou `Duration` direto. Os relógios do chamado ficam em `sla.api.RelogiosSla`: os métodos de escrita rodam na transação de quem chama e devolvem as violações recém-marcadas (`Violacao`), que o chamador grava na outbox. Mudança de prioridade usa `recalcularPorPrioridade`; reabertura, `reiniciarParaReabertura`; o encerramento congela o resultado em `sla.api.ApuracaoSla.congelarApuracao`, que nunca muda depois. A versão da política passada ao sla é sempre a guardada no chamado (`ContratoConsulta.versaoDaPolitica`). O `SlaArquiteturaTest` impede o sla de depender do chamado.
 
+## Chamado
+
+O estado do chamado só muda por `chamado.internal.TransicaoChamado.transicionar`: a entidade valida a transição (RN-10, `TRANSICAO_INVALIDA` fora dela) e a auditoria `MUDANCA_ESTADO` e o histórico são gravados na mesma transação. O histórico (`HistoricoChamado`) é a linha do tempo dos três perfis, com a visibilidade definida em `TipoEventoHistorico`; a auditoria continua só do gestor. Toda `Violacao` devolvida pelo sla vai para `NotificadorViolacao.notificar`, o único que grava `VIOLACAO` na outbox (gestores ativos + técnico atribuído, `eventoId` determinístico). Atendimentos: `AtendimentoService.criarPendente` e `interromperCorrente`, com no máximo um corrente por chamado (índice único parcial); o evidencia lê o corrente por `chamado.api.AtendimentoConsulta`.
+
 ## Erros da API
 
 Todo erro sai como Problem Details (RFC 9457) com o campo `codigo`, tratado no `shared.internal.GlobalExceptionHandler`. Regra de negócio: `throw new RegraNegocioException(CodigoErro.X, "mensagem")` (422); recurso inexistente ou de outro cliente: `throw new RecursoNaoEncontradoException()` (404). Status, códigos e catálogo em `docs/erros-api.md`.

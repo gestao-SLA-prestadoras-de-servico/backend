@@ -31,7 +31,7 @@ CREATE TABLE exemplo (
 
 ### Referência a tabela que ainda não existe
 
-Coluna que aponta para uma tabela de um módulo ainda não implementado nasce **sem FK**, com um comentário na migração dizendo isso. A FK é acrescentada pela migração que criar a tabela de destino. Hoje: `relogio_sla.chamado_id` (V10) e `apuracao_sla.chamado_id` (V11), à espera da tabela `chamado`.
+Coluna que aponta para uma tabela de um módulo ainda não implementado nasce **sem FK**, com um comentário na migração dizendo isso. A FK é acrescentada pela migração que criar a tabela de destino. Foi o caso de `relogio_sla.chamado_id` (V10) e `apuracao_sla.chamado_id` (V11), cuja FK entrou com a tabela `chamado` (V12).
 
 ### Exceção: registros imutáveis
 
@@ -40,6 +40,12 @@ A trilha de auditoria (`auditoria`) **não** estende `EntidadeBase`: um registro
 As versões de política de SLA (`politica_sla_versao`, RN-04) seguem o modelo: sem `updated_at`, com `criada_em` vindo do `Clock`, entidade `@Immutable` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` sem exceção (ver `V8__cria_politica_sla.sql`). Alterar a política é inserir uma versão nova.
 
 A apuração de SLA (`apuracao_sla`, RN-68) segue o mesmo modelo: `@Immutable`, `congelada_em` vindo do `Clock` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` (ver `V11__cria_apuracao_sla.sql`).
+
+O histórico do chamado (`chamado_historico`) também: `@Immutable`, `ocorrido_em` vindo do `Clock` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` (ver `V12__cria_chamado.sql`). O `evento` é texto sem CHECK, como a `operacao` da auditoria, para cada task acrescentar os seus sem migração.
+
+### Leitura da tabela de outro módulo
+
+O `Chamado` lê `relogio_sla` por `@Formula` (`comViolacao` e `proximoVencimento`), só para filtrar e ordenar a listagem no banco com paginação. É leitura; quem grava a tabela continua sendo só o sla. Renomear `relogio_sla` ou as colunas `chamado_id`, `ativo`, `vence_em`, `cumprido_em` e `violado_em` exige ajustar essas fórmulas.
 
 ### Exceção: tabela de saída (`outbox_eventos`)
 
