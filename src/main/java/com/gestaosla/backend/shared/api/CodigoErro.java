@@ -18,11 +18,14 @@ public enum CodigoErro {
 
     // Conflitos: lançados via ConflitoException (409)
     USUARIO_JA_EXISTE,          // RN-127: conta com mesmo username ou e-mail no Keycloak
+    CODIGO_CONTRATO_JA_EXISTE,  // cadastro-02: código de contrato é único no sistema
+    NOME_POLITICA_JA_EXISTE,    // cadastro-03: nome de política de SLA é único
 
     // Regras de negócio: lançados via RegraNegocioException (422)
     TRANSICAO_INVALIDA,         // RN-11, RN-13
     CONTRATO_FORA_VIGENCIA,     // RN-01
     CONTRATO_SEM_POLITICA,      // RN-03
+    POLITICA_INEXISTENTE,       // cadastro-04: política informada no vínculo não existe
     ORDEM_PRAZOS_INVALIDA,      // RN-30, RN-32
     EVIDENCIA_OBRIGATORIA,      // RN-72
     CANCELAMENTO_NAO_PERMITIDO, // RN-19

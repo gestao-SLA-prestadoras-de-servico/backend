@@ -22,7 +22,7 @@
     "/api/clientes" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100); inclui inativos.",
-        "operationId" : "listar_1",
+        "operationId" : "listar_3",
         "parameters" : [ {
           "in" : "query",
           "name" : "razaoSocial",
@@ -99,7 +99,7 @@
       },
       "post" : {
         "description" : "Somente GESTOR. O cliente nasce ativo.",
-        "operationId" : "criar",
+        "operationId" : "criar_2",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -232,10 +232,472 @@
         "tags" : [ "Cadastro" ]
       }
     },
+    "/api/contratos" : {
+      "get" : {
+        "description" : "Somente GESTOR. Paginado; `vigente` compara com a data de hoje.",
+        "operationId" : "listar_2",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "clienteId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "vigente",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "codigo,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelContratoResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar contratos",
+        "tags" : [ "Cadastro" ]
+      },
+      "post" : {
+        "description" : "Somente GESTOR. A vigência vale do início até 23:59:59 do fim, no fuso do sistema.",
+        "operationId" : "criar_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DadosContrato"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContratoResponse"
+                }
+              }
+            },
+            "description" : "Contrato criado"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Cadastrar contrato",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/contratos/{id}/politica" : {
+      "put" : {
+        "description" : "Somente GESTOR. O contrato tem uma política por vez; chamados já abertos mantêm a versão da abertura (RN-02, RN-05). Política inexistente: 422.",
+        "operationId" : "vincularPolitica",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Vinculo"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ContratoResponse"
+                }
+              }
+            },
+            "description" : "Política vinculada"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Vincular ou trocar a política do contrato",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/me/contratos" : {
+      "get" : {
+        "description" : "Somente CLIENTE. A empresa vem do usuário autenticado.",
+        "operationId" : "meus",
+        "parameters" : [ {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "codigo,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelContratoResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Contratos vigentes da minha empresa",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/politicas" : {
+      "get" : {
+        "description" : "Somente GESTOR. Paginado, com a versão atual de cada uma.",
+        "operationId" : "listar_1",
+        "parameters" : [ {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "nome,ASC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelPoliticaResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar políticas de SLA",
+        "tags" : [ "Cadastro" ]
+      },
+      "post" : {
+        "description" : "Somente GESTOR. Cria a política com a versão 1. Em cada prioridade, resposta < campo < resolução (RN-30); senão, 422 ORDEM_PRAZOS_INVALIDA.",
+        "operationId" : "criar",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DadosPolitica"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PoliticaResponse"
+                }
+              }
+            },
+            "description" : "Política criada"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Cadastrar política de SLA",
+        "tags" : [ "Cadastro" ]
+      }
+    },
+    "/api/politicas/{id}/versoes" : {
+      "get" : {
+        "description" : "Somente GESTOR. Paginado, da mais nova para a mais antiga.",
+        "operationId" : "versoes",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "numero,DESC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Histórico de versões da política",
+        "tags" : [ "Cadastro" ]
+      },
+      "post" : {
+        "description" : "Somente GESTOR. Não existe edição: as versões anteriores ficam como estão, e chamados já abertos mantêm os prazos da sua versão (RN-04, RN-05).",
+        "operationId" : "novaVersao",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DadosVersao"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VersaoResponse"
+                }
+              }
+            },
+            "description" : "Versão criada"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Criar nova versão da política",
+        "tags" : [ "Cadastro" ]
+      }
+    },
     "/api/tecnicos" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100), para escolher o técnico na atribuição e na inativação. Sem `ativos`, lista os ativos.",
-        "operationId" : "listar_2",
+        "operationId" : "listar_4",
         "parameters" : [ {
           "in" : "query",
           "name" : "ativos",
@@ -737,6 +1199,34 @@
           }
         }
       },
+      "ContratoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "codigo" : {
+            "type" : "string"
+          },
+          "fimVigencia" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "inicioVigencia" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "politicaId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "DadosCliente" : {
         "type" : "object",
         "properties" : {
@@ -758,6 +1248,64 @@
           }
         },
         "required" : [ "emailContato", "endereco", "razaoSocial" ]
+      },
+      "DadosContrato" : {
+        "type" : "object",
+        "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "codigo" : {
+            "type" : "string",
+            "example" : "CT-2026-001",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "fimVigencia" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "2026-12-31"
+          },
+          "inicioVigencia" : {
+            "type" : "string",
+            "format" : "date",
+            "example" : "2026-01-01"
+          }
+        },
+        "required" : [ "clienteId", "codigo", "fimVigencia", "inicioVigencia" ]
+      },
+      "DadosPolitica" : {
+        "type" : "object",
+        "properties" : {
+          "nome" : {
+            "type" : "string",
+            "example" : "Contrato Ouro",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "prazos" : {
+            "$ref" : "#/components/schemas/PrazosPorPrioridade"
+          },
+          "prioridadePadrao" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          }
+        },
+        "required" : [ "nome", "prazos", "prioridadePadrao" ]
+      },
+      "DadosVersao" : {
+        "type" : "object",
+        "properties" : {
+          "prazos" : {
+            "$ref" : "#/components/schemas/PrazosPorPrioridade"
+          },
+          "prioridadePadrao" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          }
+        },
+        "required" : [ "prazos", "prioridadePadrao" ]
       },
       "EdicaoCliente" : {
         "type" : "object",
@@ -907,6 +1455,36 @@
         },
         "required" : [ "content", "page" ]
       },
+      "PagedModelContratoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ContratoResponse"
+            }
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/PageMetadata"
+          }
+        },
+        "required" : [ "content", "page" ]
+      },
+      "PagedModelPoliticaResponse" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PoliticaResponse"
+            }
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/PageMetadata"
+          }
+        },
+        "required" : [ "content", "page" ]
+      },
       "PagedModelTecnicoResponse" : {
         "type" : "object",
         "properties" : {
@@ -936,6 +1514,56 @@
           }
         },
         "required" : [ "content", "page" ]
+      },
+      "PoliticaResponse" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "nome" : {
+            "type" : "string"
+          },
+          "versaoAtual" : {
+            "$ref" : "#/components/schemas/VersaoResponse"
+          }
+        }
+      },
+      "Prazos" : {
+        "type" : "object",
+        "properties" : {
+          "campo" : {
+            "type" : "integer",
+            "format" : "int32",
+            "example" : 540,
+            "exclusiveMinimum" : 0
+          },
+          "resolucao" : {
+            "type" : "integer",
+            "format" : "int32",
+            "example" : 1080,
+            "exclusiveMinimum" : 0
+          },
+          "resposta" : {
+            "type" : "integer",
+            "format" : "int32",
+            "example" : 120,
+            "exclusiveMinimum" : 0
+          }
+        }
+      },
+      "PrazosPorPrioridade" : {
+        "type" : "object",
+        "properties" : {
+          "alta" : {
+            "$ref" : "#/components/schemas/Prazos"
+          },
+          "normal" : {
+            "$ref" : "#/components/schemas/Prazos"
+          }
+        },
+        "required" : [ "alta", "normal" ]
       },
       "Problema" : {
         "type" : "object",
@@ -1061,6 +1689,44 @@
             "format" : "uuid"
           }
         }
+      },
+      "VersaoResponse" : {
+        "type" : "object",
+        "properties" : {
+          "criadaEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "criadaPor" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "numero" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "prazos" : {
+            "$ref" : "#/components/schemas/PrazosPorPrioridade"
+          },
+          "prioridadePadrao" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          }
+        }
+      },
+      "Vinculo" : {
+        "type" : "object",
+        "properties" : {
+          "politicaId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "required" : [ "politicaId" ]
       }
     },
     "securitySchemes" : {
