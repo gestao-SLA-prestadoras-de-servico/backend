@@ -9,7 +9,13 @@ enum TipoEventoHistorico {
     ABERTURA(true, true),
     MUDANCA_ESTADO(true, true),
     // Decisão da [chamado - 05]: a alteração da prioridade é interna, só do gestor.
-    ALTERACAO_PRIORIDADE(false, false);
+    ALTERACAO_PRIORIDADE(false, false),
+    // [chamado - 06]: o cliente recebe o posicionamento por e-mail; vê também na linha do tempo.
+    POSICIONAMENTO(true, true),
+    // [chamado - 07] e transferência por inativação: troca de técnico é organização interna.
+    ATRIBUICAO(false, true),
+    REATRIBUICAO(false, true),
+    TRANSFERENCIA_POR_INATIVACAO(false, true);
 
     private final boolean visivelCliente;
     private final boolean visivelTecnico;

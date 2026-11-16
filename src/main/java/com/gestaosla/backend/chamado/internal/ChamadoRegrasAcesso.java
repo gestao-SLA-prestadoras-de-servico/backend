@@ -16,6 +16,7 @@ class ChamadoRegrasAcesso {
         return rotas -> {
             rotas.requestMatchers(HttpMethod.POST, "/api/chamados").hasRole("CLIENTE");
             rotas.requestMatchers(HttpMethod.PUT, "/api/chamados/*/prioridade").hasRole("GESTOR");
+            rotas.requestMatchers(HttpMethod.POST, "/api/chamados/*/posicionamento", "/api/chamados/*/atribuicao").hasRole("GESTOR");
             rotas.requestMatchers(HttpMethod.GET, "/api/chamados", "/api/chamados/**").hasAnyRole("GESTOR", "TECNICO", "CLIENTE");
         };
     }

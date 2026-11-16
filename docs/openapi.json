@@ -233,6 +233,50 @@
         "tags" : [ "Chamados" ]
       }
     },
+    "/api/chamados/{id}/atribuicao" : {
+      "post" : {
+        "description" : "Somente GESTOR, em ABERTO, ATRIBUIDO ou EM_ATENDIMENTO. `version` é a do chamado lido: se mudou, 409. Em EM_ATENDIMENTO o chamado volta a ATRIBUIDO e o atendimento é interrompido. Nenhum prazo de SLA muda.",
+        "operationId" : "atribuir",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Atribuicao"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Atribuir ou reatribuir o técnico",
+        "tags" : [ "Chamados" ]
+      }
+    },
     "/api/chamados/{id}/historico" : {
       "get" : {
         "description" : "Linha do tempo filtrada pelo perfil; o gestor vê todos os eventos.",
@@ -264,6 +308,50 @@
           }
         },
         "summary" : "Histórico do chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/posicionamento" : {
+      "post" : {
+        "description" : "Somente GESTOR, em qualquer estado não final. Cumpre o SLA de resposta e envia o texto por e-mail ao cliente. Só uma vez: a segunda responde 422 `POSICIONAMENTO_JA_REGISTRADO`.",
+        "operationId" : "posicionar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Posicionamento"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Registrar o primeiro posicionamento",
         "tags" : [ "Chamados" ]
       }
     },
@@ -1542,6 +1630,20 @@
           }
         }
       },
+      "Atribuicao" : {
+        "type" : "object",
+        "properties" : {
+          "tecnicoSub" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "tecnicoSub", "version" ]
+      },
       "ChamadoCliente" : {
         "type" : "object",
         "properties" : {
@@ -1591,6 +1693,13 @@
           "politicaVersaoId" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "posicionadoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "posicionamento" : {
+            "type" : "string"
           },
           "prioridade" : {
             "type" : "string",
@@ -1677,6 +1786,13 @@
             "type" : "string",
             "format" : "uuid"
           },
+          "posicionadoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "posicionamento" : {
+            "type" : "string"
+          },
           "prioridade" : {
             "type" : "string",
             "enum" : [ "ALTA", "NORMAL" ]
@@ -1713,6 +1829,10 @@
           },
           "titulo" : {
             "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -2207,6 +2327,17 @@
             "$ref" : "#/components/schemas/VersaoResponse"
           }
         }
+      },
+      "Posicionamento" : {
+        "type" : "object",
+        "properties" : {
+          "texto" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "texto" ]
       },
       "Prazos" : {
         "type" : "object",

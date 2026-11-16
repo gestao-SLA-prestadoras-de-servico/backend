@@ -47,6 +47,7 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | Código | Regra |
 | --- | --- |
 | `TRANSICAO_INVALIDA` | Transição fora da máquina de estados ou a partir de estado final (RN-11, RN-13) |
+| `POSICIONAMENTO_JA_REGISTRADO` | O primeiro posicionamento do chamado já foi registrado (RN-23) |
 | `CONTRATO_FORA_VIGENCIA` | Chamado aberto sob contrato sem vigência ativa (RN-01) |
 | `CONTRATO_SEM_POLITICA` | Contrato sem política de SLA vinculada (RN-03); lançado por `cadastro.api.ContratoConsulta.versaoVigenteDaPolitica` |
 | `ORDEM_PRAZOS_INVALIDA` | Política com prazos fora da ordem resposta < campo < resolução (RN-30, RN-32) |

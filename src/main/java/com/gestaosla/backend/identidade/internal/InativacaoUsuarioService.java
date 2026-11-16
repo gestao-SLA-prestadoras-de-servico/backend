@@ -35,7 +35,7 @@ class InativacaoUsuarioService {
     private final UsuarioRepository usuarios;
     private final KeycloakAdminClient keycloak;
     private final AuditoriaService auditoria;
-    private final Optional<ChamadosDoTecnico> chamados; // Vazio até a [chamado - 13]: sem o módulo, não há chamados.
+    private final Optional<ChamadosDoTecnico> chamados; // Implementada pelo módulo chamado; vazia só em teste.
     private final TransactionTemplate transacao;
 
     InativacaoUsuarioService(UsuarioRepository usuarios, KeycloakAdminClient keycloak, AuditoriaService auditoria,

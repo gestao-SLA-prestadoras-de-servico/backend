@@ -30,7 +30,7 @@ import lombok.RequiredArgsConstructor;
 class TecnicoController {
 
     private final UsuarioConsultaService consulta;
-    private final Optional<ChamadosDoTecnico> chamados; // Vazio até a [chamado - 13]: carga 0.
+    private final Optional<ChamadosDoTecnico> chamados; // Implementada pelo módulo chamado; vazia só em teste.
 
     @Operation(summary = "Listar técnicos", description = "Somente GESTOR. Paginado (20 por página, máximo 100), para escolher o "
             + "técnico na atribuição e na inativação. Sem `ativos`, lista os ativos.")
