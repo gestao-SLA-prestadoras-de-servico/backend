@@ -61,4 +61,4 @@ Toda a autenticação depende do Keycloak: ele guarda as contas, emite os tokens
 
 ## Como verificar
 
-Ver `docs/testes/autenticacao-01-configurar-realm-keycloak.md`.
+Ver `docs/testes/autenticacao/autenticacao-01-configurar-realm-keycloak.md`.

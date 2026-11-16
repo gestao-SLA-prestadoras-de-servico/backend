@@ -73,4 +73,4 @@ Mantidos, por decisão do usuário: a trava global e a exigência de que o subst
 
 ## Como verificar
 
-Ver `docs/testes/autenticacao-06-inativar-usuario.md`.
+Ver `docs/testes/autenticacao/autenticacao-06-inativar-usuario.md`.

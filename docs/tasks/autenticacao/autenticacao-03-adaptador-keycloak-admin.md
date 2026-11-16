@@ -59,4 +59,4 @@ O app-principal cria, desabilita e reabilita contas no Keycloak quando o gestor 
 
 ## Como verificar
 
-Ver `docs/testes/autenticacao-03-adaptador-keycloak-admin.md`.
+Ver `docs/testes/autenticacao/autenticacao-03-adaptador-keycloak-admin.md`.

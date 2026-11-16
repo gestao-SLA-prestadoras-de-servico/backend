@@ -48,4 +48,4 @@ O cliente é a empresa contratante. O e-mail de contato do cadastro é o destino
 
 ## Como verificar
 
-Ver `docs/testes/cadastro-01-cadastrar-clientes.md`.
+Ver `docs/testes/cadastro/cadastro-01-cadastrar-clientes.md`.

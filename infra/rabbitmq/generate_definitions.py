@@ -44,17 +44,8 @@ definitions = {
             "read": ".*",
         }
     ],
-    "exchanges": [
-        {
-            "name": "outbox.eventos",
-            "vhost": "/",
-            "type": "topic",
-            "durable": True,
-            "auto_delete": False,
-            "internal": False,
-            "arguments": {},
-        }
-    ],
+    # Topologia versionada, fonte única compartilhada com o ms-notificacoes (outbox-02).
+    **json.loads(Path("/rabbitmq/topologia.json").read_text(encoding="utf-8")),
 }
 
 output_path = Path("/rabbitmq/definitions.json")

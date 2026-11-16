@@ -44,4 +44,4 @@ O enunciado exige API REST documentada, e o frontend precisa de um contrato conf
 
 ## Como verificar
 
-Ver `docs/testes/plataforma-06-documentar-api-openapi.md`.
+Ver `docs/testes/plataforma/plataforma-06-documentar-api-openapi.md`.

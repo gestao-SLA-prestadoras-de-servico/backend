@@ -47,4 +47,4 @@ Nada a fazer: sem variável nova nem migração. A partir daqui, toda resposta d
 
 ## Como verificar
 
-Ver `docs/testes/plataforma-05-padronizar-tratamento-erros.md`.
+Ver `docs/testes/plataforma/plataforma-05-padronizar-tratamento-erros.md`.

@@ -61,4 +61,4 @@ rotina.executar();                                       // chamar o método @Sc
 
 ## Como verificar
 
-Ver `docs/testes/plataforma-04-relogio-injetavel-fuso-unico.md`.
+Ver `docs/testes/plataforma/plataforma-04-relogio-injetavel-fuso-unico.md`.
