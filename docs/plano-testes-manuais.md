@@ -300,6 +300,22 @@ Usa CH (7D.1, volte-o para `ABERTO` e `tecnico_sub` nulo pelo psql, se preciso),
 | 7E.8 | Como **UT**: `GET /api/chamados/{CH}` | 404 (foi removido) |
 | 7E.9 | Como gestor: `GET /api/tecnicos` | UT2 com `chamadosNaoFinalizados` ≥ 1 |
 
+## 7F. Preferência, início do atendimento e cancelamento ([chamado - 08] a [chamado - 10])
+
+Usa CH atribuído a UT2 (7E.7), um segundo gestor (**UG**, do 5) e um chamado novo (**CH2**, aberto como no 7D.1).
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7F.1 | Como gestor: `PUT /api/chamados/{CH}/preferencia-notificacao` e depois `GET /api/chamados/{CH}` | 204; `notificarConclusao: true` |
+| 7F.2 | Como **UG**: `GET /api/chamados/{CH}` | `notificarConclusao: false` (a preferência é individual) |
+| 7F.3 | Repetir o 7F.1; depois `DELETE` | 204 nos dois; no psql, 2 linhas `ALTERACAO_PREFERENCIA_NOTIFICACAO` para CH (a repetição não audita) |
+| 7F.4 | Como **UT2**: `PUT /api/chamados/{CH}/atendimento/descricao` com `{"descricao": "Trocado o capacitor"}` | 422 `TRANSICAO_INVALIDA` (atendimento não iniciado) |
+| 7F.5 | Como **UT2**: `POST /api/chamados/{CH}/atendimento/inicio` | 200; `estado: EM_ATENDIMENTO`; relógio CAMPO `CUMPRIDO`; 1 atendimento `EM_ANDAMENTO` |
+| 7F.6 | Repetir o 7F.4 | 200; `atendimentos[0].descricaoTecnica` preenchida |
+| 7F.7 | Como **UT** (não atribuído): `POST /api/chamados/{CH}/atendimento/inicio` | 404 |
+| 7F.8 | Como gestor: `POST /api/chamados/{CH2}/cancelamento` com `{"motivo": "Aberto por engano"}` | 200; `estado: CANCELADO`, `estadoFinalEm` preenchido; `GET /api/chamados/{CH2}/sla` → `apurado: false` |
+| 7F.9 | Repetir o 7F.8 | 422 `CANCELAMENTO_NAO_PERMITIDO` |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |
@@ -316,4 +332,4 @@ Se `make` reclamar de permissão no `target/` (parte dele é do root, criada pel
 - **Timeout e retry da Admin API do Keycloak:** precisam de um Keycloak lento; estão no `KeycloakAdminAdapterTest`.
 - **Swagger desligado** em test/prod: `OpenApiDesligadoTest`.
 - **SLA ([sla - 01] a [sla - 05]):** a abertura e a prioridade já acionam os relógios (seção 7D); a reabertura e a apuração ainda não têm operação que as acione e estão nos testes automáticos (`RelogiosSlaTest`, `ApuracaoSlaTest`, `ConsultaChamadoTest`).
-- **Transições, histórico de estado e atendimentos ([chamado - 01] e [chamado - 02]):** ainda não há endpoint que mude o estado nem crie atendimento (atribuição, reabertura e cancelamento são tasks futuras); estão no `ChamadoModeloTest` e no `AtendimentoChamadoTest`. Na seção 7D o estado é alterado por SQL só para exercitar as consultas.
+- **Transições, histórico de estado e atendimentos ([chamado - 01] e [chamado - 02]):** a atribuição, o início do atendimento e o cancelamento já mudam o estado (seções 7E e 7F); a resolução, a reabertura e o encerramento ainda não existem; estão no `ChamadoModeloTest` e no `AtendimentoChamadoTest`. Na seção 7D o estado é alterado por SQL só para exercitar as consultas.

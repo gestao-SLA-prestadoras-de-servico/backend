@@ -36,17 +36,22 @@ class ConsultaChamadoService implements AcessoChamado {
     record Filtro(EstadoChamado estado, Prioridade prioridade, Boolean comViolacao, UUID clienteId, UUID tecnicoSub) {
     }
 
-    record Detalhe(Chamado chamado, List<RelogioView> relogios, List<Atendimento> atendimentos, Map<UUID, Long> evidencias) {
+    /** {@code notificarConclusao}: a preferência do gestor corrente (RN-40); nula para os outros perfis e na listagem. */
+    record Detalhe(Chamado chamado, List<RelogioView> relogios, List<Atendimento> atendimentos, Map<UUID, Long> evidencias,
+            Boolean notificarConclusao) {
     }
 
     private final ChamadoRepository chamados;
     private final AtendimentoService atendimentos;
     private final RelogiosSla relogios;
     private final EventoHistoricoRepository historico;
+    private final PreferenciaNotificacaoService preferencias;
     private final Optional<EvidenciasDoChamado> evidencias; // Vazio até o módulo evidencia existir: contagem 0.
 
     ConsultaChamadoService(ChamadoRepository chamados, AtendimentoService atendimentos, RelogiosSla relogios,
-            EventoHistoricoRepository historico, Optional<EvidenciasDoChamado> evidencias) {
+            EventoHistoricoRepository historico, PreferenciaNotificacaoService preferencias,
+            Optional<EvidenciasDoChamado> evidencias) {
+        this.preferencias = preferencias;
         this.chamados = chamados;
         this.atendimentos = atendimentos;
         this.relogios = relogios;
@@ -91,7 +96,8 @@ class ConsultaChamadoService implements AcessoChamado {
     Detalhe detalhar(UsuarioCorrente usuario, UUID chamadoId) {
         Chamado chamado = buscarVisivel(usuario, chamadoId);
         return new Detalhe(chamado, relogios.relogiosAtivos(chamadoId), atendimentos.doChamado(chamadoId),
-                evidencias.map(e -> e.contarPorAtendimento(chamadoId)).orElse(Map.of()));
+                evidencias.map(e -> e.contarPorAtendimento(chamadoId)).orElse(Map.of()),
+                usuario.papel() == Papel.GESTOR ? preferencias.ativa(chamadoId, usuario.sub()) : null);
     }
 
     /** Linha do tempo visível ao perfil; o gestor vê todos os eventos. */

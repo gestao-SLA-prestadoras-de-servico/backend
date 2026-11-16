@@ -55,7 +55,10 @@ class AcessoPorRotaTest {
             new Rota(HttpMethod.GET, "/api/politicas/" + ID + "/versoes"),
             new Rota(HttpMethod.PUT, "/api/chamados/" + ID + "/prioridade"),
             new Rota(HttpMethod.POST, "/api/chamados/" + ID + "/posicionamento"),
-            new Rota(HttpMethod.POST, "/api/chamados/" + ID + "/atribuicao"));
+            new Rota(HttpMethod.POST, "/api/chamados/" + ID + "/atribuicao"),
+            new Rota(HttpMethod.POST, "/api/chamados/" + ID + "/cancelamento"),
+            new Rota(HttpMethod.PUT, "/api/chamados/" + ID + "/preferencia-notificacao"),
+            new Rota(HttpMethod.DELETE, "/api/chamados/" + ID + "/preferencia-notificacao"));
 
     record Rota(HttpMethod metodo, String caminho) {
     }
@@ -94,6 +97,20 @@ class AcessoPorRotaTest {
         for (String caminho : List.of("/api/chamados", "/api/chamados/contagem", "/api/chamados/" + ID,
                 "/api/chamados/" + ID + "/historico", "/api/chamados/" + ID + "/sla")) {
             mvc.perform(get(caminho).header(HttpHeaders.AUTHORIZATION, token(SUB_GESTOR))).andExpect(status().isForbidden());
+        }
+    }
+
+    // Início e descrição do atendimento são só do técnico: gestor e cliente recebem 403 antes de o corpo ser validado.
+    @ParameterizedTest
+    @ValueSource(strings = {"GESTOR", "CLIENTE"})
+    void shouldDenyAttendanceRoutesToNonTechniciansBeforeValidatingBody(String papel) throws Exception {
+        String quem = papel.equals("GESTOR") ? token(SUB_GESTOR, "GESTOR") : token(usuario(papel), papel);
+        for (Rota rota : List.of(new Rota(HttpMethod.POST, "/api/chamados/" + ID + "/atendimento/inicio"),
+                new Rota(HttpMethod.PUT, "/api/chamados/" + ID + "/atendimento/descricao"))) {
+            mvc.perform(request(rota.metodo(), rota.caminho()).header(HttpHeaders.AUTHORIZATION, quem)
+                            .contentType(MediaType.APPLICATION_JSON).content("{"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.codigo").value("ACESSO_NEGADO"));
         }
     }
 

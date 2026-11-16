@@ -14,6 +14,7 @@ import org.springframework.data.web.PagedModel;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -54,6 +55,9 @@ class ChamadoController {
     private final PrioridadeService prioridades;
     private final PosicionamentoService posicionamentos;
     private final AtribuicaoService atribuicoes;
+    private final PreferenciaNotificacaoService preferencias;
+    private final CancelamentoService cancelamentos;
+    private final AtendimentoService atendimentos;
 
     @Operation(summary = "Abrir chamado", description = "Somente CLIENTE, sob contrato vigente da própria empresa. Os três "
             + "prazos de SLA são calculados na mesma transação; a prioridade sugerida não muda nenhum prazo.")
@@ -80,7 +84,7 @@ class ChamadoController {
             @AuthenticationPrincipal UsuarioCorrente usuario) {
         var filtro = new ConsultaChamadoService.Filtro(estado, prioridade, comViolacao, clienteId, tecnicoSub);
         return new PagedModel<>(consulta.listar(usuario, filtro, pagina)
-                .map(c -> ChamadoView.de(usuario.papel(), new ConsultaChamadoService.Detalhe(c, null, null, Map.of()))));
+                .map(c -> ChamadoView.de(usuario.papel(), new ConsultaChamadoService.Detalhe(c, null, null, Map.of(), null))));
     }
 
     @Operation(summary = "Contagem por estado", description = "Quantidade de chamados de cada estado, no que o usuário pode ver.")
@@ -143,7 +147,66 @@ class ChamadoController {
         return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
     }
 
+    @Operation(summary = "Ativar a minha preferência de notificação", description = "Somente GESTOR. Avisa o próprio gestor "
+            + "quando o técnico concluir o atendimento deste chamado. Repetir não muda nada.")
+    @ApiResponse(responseCode = "204", description = "Preferência ativa")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PutMapping("/{id}/preferencia-notificacao")
+    @PreAuthorize("hasRole('GESTOR')")
+    ResponseEntity<Void> ativarPreferencia(@PathVariable UUID id, @AuthenticationPrincipal UsuarioCorrente usuario) {
+        preferencias.ativar(id, Ator.usuario(usuario.sub(), usuario.papel()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Desativar a minha preferência de notificação", description = "Somente GESTOR; só a do próprio gestor.")
+    @ApiResponse(responseCode = "204", description = "Preferência inativa")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @DeleteMapping("/{id}/preferencia-notificacao")
+    @PreAuthorize("hasRole('GESTOR')")
+    ResponseEntity<Void> desativarPreferencia(@PathVariable UUID id, @AuthenticationPrincipal UsuarioCorrente usuario) {
+        preferencias.desativar(id, Ator.usuario(usuario.sub(), usuario.papel()));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Cancelar chamado", description = "Somente GESTOR, com motivo, em ABERTO, ATRIBUIDO ou EM_ATENDIMENTO. "
+            + "O atendimento em andamento é interrompido; o chamado cancelado não tem apuração de SLA.")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PostMapping("/{id}/cancelamento")
+    @PreAuthorize("hasRole('GESTOR')")
+    ChamadoView cancelar(@PathVariable UUID id, @Valid @RequestBody Cancelamento corpo,
+            @AuthenticationPrincipal UsuarioCorrente usuario) {
+        cancelamentos.cancelar(id, corpo.motivo(), Ator.usuario(usuario.sub(), usuario.papel()));
+        return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
+    }
+
+    @Operation(summary = "Iniciar o atendimento", description = "Somente o TECNICO atribuído, com o chamado em ATRIBUIDO. Cumpre "
+            + "o SLA de atendimento em campo no primeiro início do ciclo.")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PostMapping("/{id}/atendimento/inicio")
+    @PreAuthorize("hasRole('TECNICO')")
+    ChamadoView iniciarAtendimento(@PathVariable UUID id, @AuthenticationPrincipal UsuarioCorrente usuario) {
+        atendimentos.iniciar(id, Ator.usuario(usuario.sub(), usuario.papel()));
+        return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
+    }
+
+    @Operation(summary = "Registrar a descrição técnica", description = "Somente o TECNICO atribuído, com o atendimento em "
+            + "andamento. Pode ser reescrita até a conclusão.")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PutMapping("/{id}/atendimento/descricao")
+    @PreAuthorize("hasRole('TECNICO')")
+    ChamadoView registrarDescricao(@PathVariable UUID id, @Valid @RequestBody Descricao corpo,
+            @AuthenticationPrincipal UsuarioCorrente usuario) {
+        atendimentos.registrarDescricao(id, Ator.usuario(usuario.sub(), usuario.papel()), corpo.descricao());
+        return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
+    }
+
     record NovaPrioridade(@NotNull Prioridade prioridade) {
+    }
+
+    record Cancelamento(@NotBlank @Size(max = 1000) String motivo) {
+    }
+
+    record Descricao(@NotBlank @Size(max = 4000) String descricao) {
     }
 
     record Posicionamento(@NotBlank @Size(max = 4000) String texto) {
@@ -177,7 +240,7 @@ class ChamadoController {
                         c.getTitulo(), c.getDescricao(), c.getLocal(), c.getEstado(), c.getPrioridadeSugerida(),
                         c.getPrioridadeDefinida(), c.getPrioridadePadrao(), c.prioridadeEfetiva(), c.getTecnicoSub(),
                         c.getAbertoEm(), c.getResolvidoEm(), c.getEstadoFinalEm(), c.isComViolacao(), c.getProximoVencimento(),
-                        c.getPosicionamento(), c.getPosicionadoEm(), c.getVersion(), d.relogios(), atendimentos);
+                        c.getPosicionamento(), c.getPosicionadoEm(), c.getVersion(), d.notificarConclusao(), d.relogios(), atendimentos);
                 case CLIENTE -> new ChamadoCliente(c.getId(), c.getNumero(), c.getContratoId(), c.getClienteId(), c.getPoliticaVersaoId(),
                         c.getTitulo(), c.getDescricao(), c.getLocal(), c.getEstado(), c.getPrioridadeSugerida(),
                         c.getPrioridadeDefinida(), c.getPrioridadePadrao(), c.prioridadeEfetiva(), c.getAbertoEm(),
@@ -195,7 +258,8 @@ class ChamadoController {
             String local, EstadoChamado estado, Prioridade prioridadeSugerida, Prioridade prioridadeDefinida,
             Prioridade prioridadePadrao, Prioridade prioridade, UUID tecnicoSub, Instant abertoEm, Instant resolvidoEm,
             Instant estadoFinalEm, boolean comViolacao, Instant proximoVencimento, String posicionamento, Instant posicionadoEm,
-            long version, @JsonInclude(JsonInclude.Include.NON_NULL) List<RelogioView> relogios,
+            long version, @JsonInclude(JsonInclude.Include.NON_NULL) Boolean notificarConclusao,
+            @JsonInclude(JsonInclude.Include.NON_NULL) List<RelogioView> relogios,
             @JsonInclude(JsonInclude.Include.NON_NULL) List<AtendimentoView> atendimentos) implements ChamadoView {
     }
 
