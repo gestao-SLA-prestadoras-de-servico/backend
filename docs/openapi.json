@@ -399,6 +399,117 @@
         "tags" : [ "Chamados" ]
       }
     },
+    "/api/chamados/{id}/evidencias" : {
+      "get" : {
+        "description" : "Os três papéis, dentro do isolamento do chamado (outro cliente ou técnico não atribuído recebe 404). Agrupadas por atendimento e ordenadas por `enviadaEm`; as EXPURGADAS continuam na lista, só com os metadados (RN-104). Sem paginação.",
+        "operationId" : "listar_5",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/EvidenciasDoAtendimento"
+                  }
+                }
+              }
+            },
+            "description" : "Evidências por atendimento"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar evidências do chamado",
+        "tags" : [ "Evidências" ]
+      },
+      "post" : {
+        "description" : "Somente o TECNICO atribuído, com o atendimento em andamento. Multipart, campo `arquivo`: JPEG, PNG ou WebP de até 10 MB (o tipo vem dos bytes, não da extensão). A imagem é sanitizada (EXIF removido, rotação aplicada) e gravada antes da resposta; os derivados são gerados depois, e a evidência fica RECEBIDA. 413 `ARQUIVO_MUITO_GRANDE`; 422 `FORMATO_NAO_SUPORTADO`, `IMAGEM_MUITO_GRANDE`, `IMAGEM_INVALIDA` ou `TRANSICAO_INVALIDA` (sem atendimento em andamento).",
+        "operationId" : "enviar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "arquivo" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                },
+                "required" : [ "arquivo" ]
+              }
+            }
+          }
+        },
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EvidenciaRecebida"
+                }
+              }
+            },
+            "description" : "Evidência recebida"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "413" : {
+            "$ref" : "#/components/responses/ArquivoMuitoGrande"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/RegraNegocio"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Enviar evidência",
+        "tags" : [ "Evidências" ]
+      }
+    },
     "/api/chamados/{id}/historico" : {
       "get" : {
         "description" : "Linha do tempo filtrada pelo perfil; o gestor vê todos os eventos.",
@@ -1024,6 +1135,111 @@
         "tags" : [ "Cadastro" ]
       }
     },
+    "/api/evidencias/{id}/conteudo" : {
+      "get" : {
+        "description" : "Os três papéis, dentro do isolamento do chamado (senão 404). `variante`: `visualizacao` (padrão, JPEG de até 1280 px), `miniatura` (JPEG de até 320 px) ou `original`. Se o derivado pedido ainda não existe (evidência RECEBIDA, PROCESSANDO ou FALHA), serve o original. Resposta em streaming, com `Content-Type`, `Content-Length`, `ETag` forte e `Cache-Control: private`; `If-None-Match` igual responde 304 sem ler o storage. Evidência EXPURGADA: 410 `EVIDENCIA_EXPURGADA`. Variante desconhecida: 400.",
+        "operationId" : "conteudo",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "variante",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "visualizacao",
+            "enum" : [ "visualizacao", "miniatura", "original" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "image/*" : { }
+            },
+            "description" : "Bytes da imagem"
+          },
+          "304" : {
+            "description" : "Não modificado (`If-None-Match`)"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "410" : {
+            "$ref" : "#/components/responses/EvidenciaExpurgada"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          },
+          "503" : {
+            "$ref" : "#/components/responses/ServicoIndisponivel"
+          }
+        },
+        "summary" : "Baixar o conteúdo da evidência",
+        "tags" : [ "Evidências" ]
+      }
+    },
+    "/api/evidencias/{id}/reprocessamento" : {
+      "post" : {
+        "description" : "Somente o GESTOR. A evidência precisa estar em FALHA (senão 422 `REPROCESSAMENTO_NAO_PERMITIDO`): volta a RECEBIDA, é auditada e um novo evento de processamento entra na outbox.",
+        "operationId" : "reprocessar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EvidenciaRecebida"
+                }
+              }
+            },
+            "description" : "Evidência recolocada na fila de processamento"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "422" : {
+            "$ref" : "#/components/responses/RegraNegocio"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Reprocessar evidência com falha",
+        "tags" : [ "Evidências" ]
+      }
+    },
     "/api/me/contratos" : {
       "get" : {
         "description" : "Somente CLIENTE. A empresa vem do usuário autenticado.",
@@ -1315,7 +1531,7 @@
     "/api/tecnicos" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100), para escolher o técnico na atribuição e na inativação. Sem `ativos`, lista os ativos.",
-        "operationId" : "listar_5",
+        "operationId" : "listar_6",
         "parameters" : [ {
           "in" : "query",
           "name" : "ativos",
@@ -1626,6 +1842,26 @@
         },
         "description" : "Papel sem permissão para a operação"
       },
+      "ArquivoMuitoGrande" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "ARQUIVO_MUITO_GRANDE" : {
+                "value" : {
+                  "codigo" : "ARQUIVO_MUITO_GRANDE",
+                  "detail" : "Maximum upload size exceeded",
+                  "status" : 413,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Arquivo acima de 10 MB (RN-75)"
+      },
       "Conflito" : {
         "content" : {
           "application/problem+json" : {
@@ -1685,6 +1921,26 @@
           }
         },
         "description" : "Erro inesperado"
+      },
+      "EvidenciaExpurgada" : {
+        "content" : {
+          "application/problem+json" : {
+            "examples" : {
+              "EVIDENCIA_EXPURGADA" : {
+                "value" : {
+                  "codigo" : "EVIDENCIA_EXPURGADA",
+                  "detail" : "A evidência foi expurgada.",
+                  "status" : 410,
+                  "type" : "about:blank"
+                }
+              }
+            },
+            "schema" : {
+              "$ref" : "#/components/schemas/Problema"
+            }
+          }
+        },
+        "description" : "Evidência expurgada: o arquivo não existe mais (RN-81)"
       },
       "NaoAutenticado" : {
         "content" : {
@@ -2372,12 +2628,74 @@
         },
         "required" : [ "bairro", "cep", "cidade", "logradouro", "numero", "uf" ]
       },
+      "EvidenciaRecebida" : {
+        "type" : "object",
+        "properties" : {
+          "estado" : {
+            "type" : "string",
+            "enum" : [ "RECEBIDA", "PROCESSANDO", "DISPONIVEL", "FALHA", "EXPURGADA" ]
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "EvidenciasDoAtendimento" : {
+        "type" : "object",
+        "properties" : {
+          "atendimentoId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "evidencias" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ItemEvidencia"
+            }
+          }
+        }
+      },
       "Inativacao" : {
         "type" : "object",
         "properties" : {
           "substitutoId" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "ItemEvidencia" : {
+        "type" : "object",
+        "properties" : {
+          "enviadaEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "estado" : {
+            "type" : "string",
+            "enum" : [ "RECEBIDA", "PROCESSANDO", "DISPONIVEL", "FALHA", "EXPURGADA" ]
+          },
+          "expurgadaEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "hashSha256" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "nome" : {
+            "type" : "string"
+          },
+          "tamanho" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tipoConteudo" : {
+            "type" : "string"
           }
         }
       },

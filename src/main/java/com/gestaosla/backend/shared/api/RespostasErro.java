@@ -11,6 +11,8 @@ public final class RespostasErro {
     public static final String CONFLITO_VERSAO = "ConflitoVersao";
     public static final String CONFLITO = "Conflito";
     public static final String REGRA_NEGOCIO = "RegraNegocio";
+    public static final String EVIDENCIA_EXPURGADA = "EvidenciaExpurgada";
+    public static final String ARQUIVO_MUITO_GRANDE = "ArquivoMuitoGrande";
     public static final String SERVICO_INDISPONIVEL = "ServicoIndisponivel";
 
     private RespostasErro() {

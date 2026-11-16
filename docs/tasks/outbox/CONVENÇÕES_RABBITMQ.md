@@ -160,6 +160,10 @@ Fonte única: `infra/rabbitmq/topologia.json`, versionada neste repositório. O 
 
 Todas as filas são `classic` e `durable`. Uma fila por canal (RN-48): um problema no SMTP não atrasa o sino.
 
+### 3.1. Consumidor das evidências (app-principal)
+
+A fila `evidencias.processamento` é consumida pelo próprio app-principal (`ProcessadorEvidencias`, evidencia-03), com ack automático depois do commit do resultado, `prefetch=1` e concorrência de 1 a 2. Falha definitiva (3 tentativas com backoff esgotadas, ou imagem que não decodifica) marca a evidência `FALHA` e rejeita a mensagem sem requeue; a DLX `evidencias.dlx` a entrega em `evidencias.processamento.dlq`, que não expira. Reprocessar uma evidência em `FALHA` é feito pelo gestor em `POST /api/evidencias/{id}/reprocessamento` (evidencia-05): a evidência volta a `RECEBIDA` e um evento novo, com outro `eventoId`, entra na outbox. Republicar à mão a mensagem antiga da DLQ não reprocessa uma evidência em `FALHA`, que é descartada (RN-86), e, se ela já foi reprocessada, também é descartada (já `DISPONIVEL`). A mesma mensagem entregue duas vezes é inofensiva (RN-115).
+
 ## 4. A mensagem
 
 ### 4.1. Propriedades AMQP

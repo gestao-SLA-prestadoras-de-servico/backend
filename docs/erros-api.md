@@ -25,6 +25,8 @@ Erro de validação traz também `erros`: `[{ "campo": "titulo", "mensagem": "mu
 | Recurso inexistente **ou de outro cliente** | 404 | `RECURSO_NAO_ENCONTRADO` | `throw new RecursoNaoEncontradoException()` |
 | Bloqueio otimista: registro alterado por outra operação (RN-117) | 409 | `CONFLITO_VERSAO` | Automático (`ObjectOptimisticLockingFailureException`) |
 | Conflito com registro existente, ex.: conta no Keycloak com mesmo username ou e-mail (RN-127) | 409 | ver catálogo de conflitos | `throw new ConflitoException(CodigoErro.X, "mensagem")` (ex.: `UsuarioJaExisteException`) |
+| Arquivo enviado acima de 10 MB (RN-75) | 413 | `ARQUIVO_MUITO_GRANDE` | Automático (`MaxUploadSizeExceededException`); o serviço lança a mesma exceção como defesa |
+| Evidência expurgada: o arquivo não existe mais (RN-81, RN-104) | 410 | `EVIDENCIA_EXPURGADA` | `throw new ResponseStatusException(HttpStatus.GONE, "mensagem")`; o handler dá o código pelo status |
 | Regra de negócio violada | 422 | ver catálogo | `throw new RegraNegocioException(CodigoErro.X, "mensagem")` |
 | Outros erros do Spring MVC (405, 406, 415…) | o do Spring | `REQUISICAO_INVALIDA` | Automático |
 | Erro inesperado | 500 | `ERRO_INTERNO` | Automático; a mensagem real só vai para o log |
@@ -39,6 +41,18 @@ Erro de validação traz também `erros`: `[{ "campo": "titulo", "mensagem": "mu
 | `USUARIO_JA_EXISTE` | Já existe conta no Keycloak com o mesmo username ou e-mail (RN-127) |
 | `CODIGO_CONTRATO_JA_EXISTE` | Já existe contrato com o mesmo código (cadastro-02) |
 | `NOME_POLITICA_JA_EXISTE` | Já existe política de SLA com o mesmo nome (cadastro-03) |
+
+## Arquivo grande demais (413)
+
+| Código | Quando |
+| --- | --- |
+| `ARQUIVO_MUITO_GRANDE` | Arquivo enviado acima de 10 MB (RN-75): `MaxUploadSizeExceededException`, do limite de multipart ou da conferência do serviço (evidencia-02). Nada é gravado. |
+
+## Evidência expurgada (410)
+
+| Código | Quando |
+| --- | --- |
+| `EVIDENCIA_EXPURGADA` | `GET /api/evidencias/{id}/conteudo` de evidência `EXPURGADA` (RN-81, evidencia-04). A listagem do chamado continua mostrando os metadados. |
 
 ## Catálogo de regras de negócio (422)
 
@@ -64,3 +78,7 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | `SUBSTITUTO_INVALIDO` | Substituto inexistente, inativo, não técnico ou o próprio inativado (RN-133) |
 | `AUTOINATIVACAO_NAO_PERMITIDA` | Gestor inativando a si mesmo (autenticação-06) |
 | `ULTIMO_GESTOR_ATIVO` | Inativação do último gestor ativo (autenticação-06) |
+| `FORMATO_NAO_SUPORTADO` | Os bytes do arquivo enviado não são JPEG, PNG nem WebP; extensão e Content-Type não contam (RN-75, evidencia-02) |
+| `IMAGEM_MUITO_GRANDE` | O cabeçalho da imagem declara mais megapixels que `app.evidencia.teto-megapixels` (RN-75, evidencia-02) |
+| `IMAGEM_INVALIDA` | Assinatura de imagem válida, mas a imagem está corrompida ou não decodifica (RN-75, evidencia-02) |
+| `REPROCESSAMENTO_NAO_PERMITIDO` | Reprocessamento de evidência que não está em `FALHA` (RN-121, evidencia-05) |
