@@ -80,8 +80,17 @@ class ContratoService implements ContratoConsulta {
         if (politicaId == null) {
             throw new RegraNegocioException(CodigoErro.CONTRATO_SEM_POLITICA, "Contrato sem política de SLA vinculada.");
         }
-        VersaoPolitica v = versoes.findFirstByPoliticaIdOrderByNumeroDesc(politicaId).orElseThrow();
-        return new PoliticaDoContrato(politicaId, v.getId(), v.getNumero(), v.getPrioridadePadrao(), v.getAlta(), v.getNormal());
+        return paraApi(versoes.findFirstByPoliticaIdOrderByNumeroDesc(politicaId).orElseThrow());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PoliticaDoContrato versaoDaPolitica(UUID versaoId) {
+        return paraApi(versoes.findById(versaoId).orElseThrow(RecursoNaoEncontradoException::new));
+    }
+
+    private static PoliticaDoContrato paraApi(VersaoPolitica v) {
+        return new PoliticaDoContrato(v.getPoliticaId(), v.getId(), v.getNumero(), v.getPrioridadePadrao(), v.getAlta(), v.getNormal());
     }
 
     @Transactional(readOnly = true)

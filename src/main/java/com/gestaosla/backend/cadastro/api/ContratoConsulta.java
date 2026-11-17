@@ -13,4 +13,12 @@ public interface ContratoConsulta {
      * @throws com.gestaosla.backend.shared.api.RegraNegocioException         {@code CONTRATO_SEM_POLITICA} (RN-03)
      */
     PoliticaDoContrato versaoVigenteDaPolitica(UUID contratoId);
+
+    /**
+     * Uma versão específica de política, pelo id que o chamado guardou na abertura. É a que vale para recalcular os
+     * prazos do chamado e para a reabertura, mesmo que a política já tenha versões mais novas (RN-05).
+     *
+     * @throws com.gestaosla.backend.shared.api.RecursoNaoEncontradoException versão inexistente
+     */
+    PoliticaDoContrato versaoDaPolitica(UUID versaoId);
 }

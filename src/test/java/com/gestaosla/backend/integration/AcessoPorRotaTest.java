@@ -12,6 +12,7 @@ import java.util.UUID;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -82,6 +83,13 @@ class AcessoPorRotaTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.codigo").value("VALIDACAO"));
+    }
+
+    // O resultado de SLA aceita os três perfis; quem não tem nenhum deles recebe 403.
+    @Test
+    void shouldDenySlaResultToTokenWithoutKnownRole() throws Exception {
+        mvc.perform(get("/api/chamados/" + ID + "/sla").header(HttpHeaders.AUTHORIZATION, token(SUB_GESTOR)))
+                .andExpect(status().isForbidden());
     }
 
     // A regra do identidade é só para o caminho exato: /me continua aberto a qualquer perfil autenticado.

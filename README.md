@@ -28,6 +28,7 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 | [Maven](https://maven.apache.org/)                                                                         | -                                   |
 | [Testcontainers](https://java.testcontainers.org/)                                                         | ^2.0.5 (PostgreSQL + JUnit Jupiter) |
 | [ArchUnit](https://www.archunit.org/)                                                                      | 1.4.1 (regras de arquitetura, nos testes) |
+| [jqwik](https://jqwik.net/)                                                                                | 1.9.3 (testes por propriedade, ex.: calendário da janela do SLA) |
 | [Lombok](https://projectlombok.org/)                                                                       | -                                   |
 | [Docker/DockerCompose](https://docs.docker.com/)                                                           | -                                   |
 | [DockerCompose](https://docs.docker.com/compose/)                                                          | -                                   |
@@ -45,7 +46,7 @@ O backend é um monólito modular. Cada módulo fica em `com.gestaosla.backend.<
 | `identidade` | Autenticação, usuários e permissões                    |
 | `cadastro`   | Clientes, contratos e políticas de SLA versionadas     |
 | `chamado`    | Abertura e ciclo de vida dos chamados                  |
-| `sla`        | Regras de SLA, cálculo e controle de prazos            |
+| `sla`        | Janela comercial, relógios de SLA e prazos             |
 | `evidencia`  | Evidências anexadas aos atendimentos                   |
 | `outbox`     | Outbox própria para publicação confiável de eventos    |
 | `auditoria`  | Histórico e trilha de auditoria                        |
@@ -162,6 +163,10 @@ Exchanges, filas e DLQs ficam em `infra/rabbitmq/topologia.json`, **fonte única
 ## Data e hora
 
 O sistema tem fuso único (`FUSO_HORARIO`, hoje `America/Fortaleza`), usado pela JVM, pela sessão JDBC, pelo Hibernate e pelo Postgres. Quem precisa da hora injeta `java.time.Clock` (bean do `shared`); `Instant.now()`, `LocalDateTime.now()` e similares sem o Clock reprovam o `RelogioArquiteturaTest`. Nos testes, `RelogioMutavel` substitui o Clock e avança o tempo sem esperar.
+
+## Prazos de SLA
+
+Todo prazo é contado em minutos da janela comercial (segunda a sexta, 08h às 17h, no fuso do sistema; feriado conta como dia útil). Some e meça sempre pelo `sla.api.CalendarioJanela` (`adicionarMinutos`, `minutosUteisEntre`), nunca com `plusMinutes` ou `Duration` direto. Os relógios do chamado ficam em `sla.api.RelogiosSla`: os métodos de escrita rodam na transação de quem chama e devolvem as violações recém-marcadas (`Violacao`), que o chamador grava na outbox. Mudança de prioridade usa `recalcularPorPrioridade`; reabertura, `reiniciarParaReabertura`; o encerramento congela o resultado em `sla.api.ApuracaoSla.congelarApuracao`, que nunca muda depois. A versão da política passada ao sla é sempre a guardada no chamado (`ContratoConsulta.versaoDaPolitica`). O `SlaArquiteturaTest` impede o sla de depender do chamado.
 
 ## Erros da API
 
