@@ -149,6 +149,11 @@ public class Chamado extends EntidadeBase {
         if (destino == EstadoChamado.RESOLVIDO) {
             resolvidoEm = instante;
         }
+        if (anterior == EstadoChamado.RESOLVIDO && destino == EstadoChamado.ATRIBUIDO) {
+            // Reabertura (RN-93): a próxima resolução conta o prazo da validação automática e o aviso de novo.
+            resolvidoEm = null;
+            avisoEnviadoEm = null;
+        }
         if (destino.finalizado()) {
             estadoFinalEm = instante; // início dos 180 dias de retenção das evidências (RN-100)
         }

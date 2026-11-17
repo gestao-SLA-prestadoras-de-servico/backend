@@ -100,6 +100,14 @@ class InativacaoUsuarioService {
         auditoria.registrar(ator, OperacaoAuditada.INATIVACAO_USUARIO, EntidadeAuditada.USUARIO, id, null, detalhes);
     }
 
+    /**
+     * Chamados que a inativação passaria ao substituto, por estado, para o modal do gestor ([chamado - 13]). Usuário que
+     * não é técnico não tem chamados: zeros. Sem o módulo chamado (só em teste), mapa vazio.
+     */
+    Map<String, Long> chamadosATransferir(UUID id) {
+        return chamados.map(c -> c.contarNaoFinalizadosPorEstado(buscar(id).getSub())).orElse(Map.of());
+    }
+
     private UUID validar(Usuario usuario, UUID substitutoId) {
         if (usuario.getPerfil() == Papel.GESTOR && usuarios.countByPerfilAndAtivoTrue(Papel.GESTOR) <= 1) {
             throw new RegraNegocioException(CodigoErro.ULTIMO_GESTOR_ATIVO, "O último gestor ativo não pode ser inativado.");

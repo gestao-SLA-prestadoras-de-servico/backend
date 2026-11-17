@@ -1,5 +1,6 @@
 package com.gestaosla.backend.chamado.internal;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -37,6 +38,16 @@ class TransferenciaChamados implements ChamadosDoTecnico {
     @Transactional(readOnly = true)
     public long contarNaoFinalizados(UUID tecnicoSub) {
         return chamados.countByTecnicoSubAndEstadoIn(tecnicoSub, NAO_FINALIZADOS);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, Long> contarNaoFinalizadosPorEstado(UUID tecnicoSub) {
+        Map<String, Long> contagem = new LinkedHashMap<>();
+        // ponytail: uma contagem por estado (3 consultas); só o modal da inativação usa.
+        NAO_FINALIZADOS.forEach(estado -> contagem.put(estado.name(),
+                chamados.countByTecnicoSubAndEstadoIn(tecnicoSub, List.of(estado))));
+        return contagem;
     }
 
     /**

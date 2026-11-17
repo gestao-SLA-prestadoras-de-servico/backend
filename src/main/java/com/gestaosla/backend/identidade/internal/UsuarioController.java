@@ -1,6 +1,7 @@
 package com.gestaosla.backend.identidade.internal;
 
 import java.net.URI;
+import java.util.Map;
 import java.util.UUID;
 
 import org.springdoc.core.annotations.ParameterObject;
@@ -85,6 +86,16 @@ class UsuarioController {
             @AuthenticationPrincipal UsuarioCorrente gestor) {
         inativacao.inativar(id, corpo == null ? null : corpo.substitutoId(), Ator.usuario(gestor.sub(), gestor.papel()));
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(summary = "Chamados a transferir na inativação", description = "Somente GESTOR. Quantos chamados do técnico "
+            + "estão em ATRIBUIDO, EM_ATENDIMENTO e RESOLVIDO: são os que passam ao substituto ao inativá-lo. Usuário que "
+            + "não é técnico: zeros.")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @GetMapping("/{id}/chamados-a-transferir")
+    @PreAuthorize("hasRole('GESTOR')")
+    Map<String, Long> chamadosATransferir(@PathVariable UUID id) {
+        return inativacao.chamadosATransferir(id);
     }
 
     /** Usuário autenticado, achado pelo {@code sub} do token; nunca por parâmetro da requisição. */

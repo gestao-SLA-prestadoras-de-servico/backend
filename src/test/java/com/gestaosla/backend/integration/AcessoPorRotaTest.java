@@ -41,6 +41,7 @@ class AcessoPorRotaTest {
             new Rota(HttpMethod.POST, "/api/usuarios"),
             new Rota(HttpMethod.GET, "/api/usuarios"),
             new Rota(HttpMethod.POST, "/api/usuarios/" + ID + "/inativacao"),
+            new Rota(HttpMethod.GET, "/api/usuarios/" + ID + "/chamados-a-transferir"),
             new Rota(HttpMethod.GET, "/api/tecnicos"),
             new Rota(HttpMethod.POST, "/api/clientes"),
             new Rota(HttpMethod.PUT, "/api/clientes/" + ID),
@@ -106,7 +107,8 @@ class AcessoPorRotaTest {
     void shouldDenyAttendanceRoutesToNonTechniciansBeforeValidatingBody(String papel) throws Exception {
         String quem = papel.equals("GESTOR") ? token(SUB_GESTOR, "GESTOR") : token(usuario(papel), papel);
         for (Rota rota : List.of(new Rota(HttpMethod.POST, "/api/chamados/" + ID + "/atendimento/inicio"),
-                new Rota(HttpMethod.PUT, "/api/chamados/" + ID + "/atendimento/descricao"))) {
+                new Rota(HttpMethod.PUT, "/api/chamados/" + ID + "/atendimento/descricao"),
+                new Rota(HttpMethod.POST, "/api/chamados/" + ID + "/atendimento/conclusao"))) {
             mvc.perform(request(rota.metodo(), rota.caminho()).header(HttpHeaders.AUTHORIZATION, quem)
                             .contentType(MediaType.APPLICATION_JSON).content("{"))
                     .andExpect(status().isForbidden())
@@ -114,16 +116,18 @@ class AcessoPorRotaTest {
         }
     }
 
-    // Abrir chamado é só do cliente: gestor e técnico recebem 403 antes de o corpo ser validado.
+    // Abrir, validar e reabrir são só do cliente: gestor e técnico recebem 403 antes de o corpo ser validado.
     @ParameterizedTest
     @ValueSource(strings = {"GESTOR", "TECNICO"})
-    void shouldDenyOpeningToNonClientsBeforeValidatingBody(String papel) throws Exception {
+    void shouldDenyClientRoutesToNonClientsBeforeValidatingBody(String papel) throws Exception {
         String quem = papel.equals("GESTOR") ? token(SUB_GESTOR, "GESTOR") : token(usuario(papel), papel);
-        for (String corpo : new String[] {"{}", "{"}) {
-            mvc.perform(request(HttpMethod.POST, "/api/chamados").header(HttpHeaders.AUTHORIZATION, quem)
-                            .contentType(MediaType.APPLICATION_JSON).content(corpo))
-                    .andExpect(status().isForbidden())
-                    .andExpect(jsonPath("$.codigo").value("ACESSO_NEGADO"));
+        for (String caminho : List.of("/api/chamados", "/api/chamados/" + ID + "/validacao", "/api/chamados/" + ID + "/reabertura")) {
+            for (String corpo : new String[] {"{}", "{"}) {
+                mvc.perform(request(HttpMethod.POST, caminho).header(HttpHeaders.AUTHORIZATION, quem)
+                                .contentType(MediaType.APPLICATION_JSON).content(corpo))
+                        .andExpect(status().isForbidden())
+                        .andExpect(jsonPath("$.codigo").value("ACESSO_NEGADO"));
+            }
         }
     }
 

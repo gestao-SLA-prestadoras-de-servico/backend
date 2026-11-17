@@ -58,6 +58,8 @@ class ChamadoController {
     private final PreferenciaNotificacaoService preferencias;
     private final CancelamentoService cancelamentos;
     private final AtendimentoService atendimentos;
+    private final ValidacaoService validacoes;
+    private final ReaberturaService reaberturas;
 
     @Operation(summary = "Abrir chamado", description = "Somente CLIENTE, sob contrato vigente da própria empresa. Os três "
             + "prazos de SLA são calculados na mesma transação; a prioridade sugerida não muda nenhum prazo.")
@@ -200,6 +202,45 @@ class ChamadoController {
         return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
     }
 
+    @Operation(summary = "Concluir o atendimento", description = "Somente o TECNICO atribuído, com o atendimento em andamento. "
+            + "Exige ao menos uma evidência (a ainda não processada já vale) e a descrição técnica; sem elas, 422 "
+            + "`EVIDENCIA_OBRIGATORIA` ou `DESCRICAO_TECNICA_OBRIGATORIA`. O chamado passa a RESOLVIDO e cumpre o SLA de "
+            + "resolução; o cliente recebe e-mail e os gestores com a preferência ativa, aviso.")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PostMapping("/{id}/atendimento/conclusao")
+    @PreAuthorize("hasRole('TECNICO')")
+    ChamadoView concluirAtendimento(@PathVariable UUID id, @AuthenticationPrincipal UsuarioCorrente usuario) {
+        atendimentos.concluir(id, Ator.usuario(usuario.sub(), usuario.papel()));
+        return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
+    }
+
+    @Operation(summary = "Validar o chamado resolvido", description = "Somente CLIENTE da empresa do chamado, em RESOLVIDO. "
+            + "Encerra o chamado e congela a apuração de SLA. `version` é a do chamado lido: se mudou, 409.")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PostMapping("/{id}/validacao")
+    @PreAuthorize("hasRole('CLIENTE')")
+    ChamadoView validar(@PathVariable UUID id, @Valid @RequestBody Validacao corpo, @AuthenticationPrincipal UsuarioCorrente usuario) {
+        validacoes.validar(id, corpo.version(), usuario);
+        return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
+    }
+
+    @Operation(summary = "Reabrir o chamado resolvido", description = "Somente CLIENTE da empresa do chamado, em RESOLVIDO, com "
+            + "justificativa. Volta a ATRIBUIDO com o mesmo técnico, cria um atendimento novo e reinicia os prazos de campo e "
+            + "de resolução. Chamado ENCERRADO: 422 `REABERTURA_NAO_PERMITIDA`. `version` é a do chamado lido: se mudou, 409.")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @PostMapping("/{id}/reabertura")
+    @PreAuthorize("hasRole('CLIENTE')")
+    ChamadoView reabrir(@PathVariable UUID id, @Valid @RequestBody Reabertura corpo, @AuthenticationPrincipal UsuarioCorrente usuario) {
+        reaberturas.reabrir(id, corpo.justificativa(), corpo.version(), usuario);
+        return ChamadoView.de(usuario.papel(), consulta.detalhar(usuario, id));
+    }
+
+    record Validacao(@NotNull Long version) {
+    }
+
+    record Reabertura(@NotBlank @Size(max = 1000) String justificativa, @NotNull Long version) {
+    }
+
     record NovaPrioridade(@NotNull Prioridade prioridade) {
     }
 
@@ -245,7 +286,7 @@ class ChamadoController {
                         c.getTitulo(), c.getDescricao(), c.getLocal(), c.getEstado(), c.getPrioridadeSugerida(),
                         c.getPrioridadeDefinida(), c.getPrioridadePadrao(), c.prioridadeEfetiva(), c.getAbertoEm(),
                         c.getResolvidoEm(), c.getEstadoFinalEm(), c.isComViolacao(), c.getProximoVencimento(),
-                        c.getPosicionamento(), c.getPosicionadoEm(), d.relogios(), atendimentos);
+                        c.getPosicionamento(), c.getPosicionadoEm(), c.getVersion(), d.relogios(), atendimentos);
                 case TECNICO -> new ChamadoTecnico(c.getId(), c.getNumero(), c.getClienteId(), c.getTitulo(), c.getDescricao(),
                         c.getLocal(), c.getEstado(), c.getPrioridadeSugerida(), c.prioridadeEfetiva(), c.getTecnicoSub(),
                         c.getAbertoEm(), c.getResolvidoEm(), c.getEstadoFinalEm(), c.isComViolacao(), c.getProximoVencimento(),
@@ -266,7 +307,9 @@ class ChamadoController {
     record ChamadoCliente(UUID id, Long numero, UUID contratoId, UUID clienteId, UUID politicaVersaoId, String titulo, String descricao,
             String local, EstadoChamado estado, Prioridade prioridadeSugerida, Prioridade prioridadeDefinida,
             Prioridade prioridadePadrao, Prioridade prioridade, Instant abertoEm, Instant resolvidoEm, Instant estadoFinalEm,
-            boolean comViolacao, Instant proximoVencimento, String posicionamento, Instant posicionadoEm, @JsonInclude(JsonInclude.Include.NON_NULL) List<RelogioView> relogios,
+            boolean comViolacao, Instant proximoVencimento, String posicionamento, Instant posicionadoEm,
+            // [chamado - 12]: o cliente envia a versão lida ao validar ou reabrir.
+            long version, @JsonInclude(JsonInclude.Include.NON_NULL) List<RelogioView> relogios,
             @JsonInclude(JsonInclude.Include.NON_NULL) List<AtendimentoView> atendimentos) implements ChamadoView {
     }
 
