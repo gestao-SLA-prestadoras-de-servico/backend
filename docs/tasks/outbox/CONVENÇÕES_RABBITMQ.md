@@ -155,10 +155,14 @@ Fonte única: `infra/rabbitmq/topologia.json`, versionada neste repositório. O 
 | `notificacoes` | `interna` | `notificacoes.interna` | DLX `notificacoes.dlx`, DLRK `interna` |
 | `notificacoes.dlx` | `email` | `notificacoes.email.dlq` | `x-message-ttl` 604800000 (7 dias, RN-57) |
 | `notificacoes.dlx` | `interna` | `notificacoes.interna.dlq` | `x-message-ttl` 604800000 (7 dias, RN-57) |
+| `notificacoes.retry` | `email.1`, `email.2`, `email.3` | `notificacoes.retry.email.{1,2,3}` | `quorum`; DLX `notificacoes`, DLRK `email`; `x-overflow` `reject-publish` |
+| `notificacoes.retry` | `interna.1`, `interna.2`, `interna.3` | `notificacoes.retry.interna.{1,2,3}` | `quorum`; DLX `notificacoes`, DLRK `interna`; `x-overflow` `reject-publish` |
 | `evidencias` | `processamento` | `evidencias.processamento` | DLX `evidencias.dlx`, DLRK `processamento` |
 | `evidencias.dlx` | `processamento` | `evidencias.processamento.dlq` | sem TTL (evidência fica em `FALHA`, RN-88) |
 
-Todas as filas são `classic` e `durable`. Uma fila por canal (RN-48): um problema no SMTP não atrasa o sino.
+Todas as filas são `durable`. As de canal e as DLQs são `classic`. Uma fila por canal (RN-48): um problema no SMTP não atrasa o sino.
+
+As filas `notificacoes.retry.*` são as esperas do retry do ms-notificacoes (seção 5, regra 5). Ninguém as consome: a mensagem fica lá até vencer o TTL e volta à fila do canal pela DLX. O TTL vem das policies `notificacoes-retry-1..3` (1 s, 2 s e 4 s), que também ligam `dead-letter-strategy: at-least-once`. Essa estratégia só existe em filas `quorum` e exige `overflow: reject-publish`, por isso essas filas não são `classic`. Por serem policies, os tempos mudam sem recriar as filas.
 
 ### 3.1. Consumidor das evidências (app-principal)
 
@@ -251,8 +255,8 @@ A ordem das chaves no JSON não é garantida (o payload passa por uma coluna `js
 | 2 | Um consumidor por fila: `notificacoes.email` e `notificacoes.interna`. | RN-48. |
 | 3 | **Idempotência pelo `eventoId`**: registrar o id só depois do processamento bem-sucedido e descartar repetições. | A entrega é ao menos uma vez (RN-55, RN-115). Registrar antes faria uma falha no meio perder a notificação. |
 | 4 | Dar **ack só depois** de gravar a notificação ou enviar o e-mail. | Ack antes perde a mensagem se o serviço cair. |
-| 5 | E-mail: falha temporária (timeout, SMTP 4xx) com nova tentativa e backoff, até 3 vezes; falha definitiva (SMTP 5xx) direto para a DLQ. | RN-50. |
-| 6 | Mandar para a DLQ = **rejeitar sem requeue** (`basic.reject`/`nack` com `requeue=false`). A fila já encaminha para a DLQ certa. | O roteamento para a DLQ é da topologia (DLX + DLRK). Requeue faria a mensagem voltar em loop. |
+| 5 | Falha temporária (e-mail: timeout, SMTP 4xx; sino: indisponibilidade do banco) com nova tentativa e backoff, até 3 vezes, pelas filas `notificacoes.retry.<canal>.<n>` (seção 3); falha definitiva (SMTP 5xx, payload inválido) direto para a DLQ. | RN-50. O retry pelo broker não segura o consumidor durante a espera e sobrevive a uma queda do serviço. |
+| 6 | Mandar para a DLQ: **rejeitar sem requeue** (`basic.reject`/`nack` com `requeue=false`), ou, quando a mensagem já passou pelo retry, **publicar a cópia em `notificacoes.dlx`** com a routing key do canal e só então dar ack na original. Nunca requeue. | O roteamento para a DLQ é da topologia (DLX + DLRK). O ms-notificacoes usa a segunda forma, porque a cópia leva o header da tentativa e da categoria da falha; a mensagem na DLQ fica sem `x-death`. Requeue faria a mensagem voltar em loop. |
 | 7 | Circuit breaker do SMTP aberto: **pausar o consumo** da fila de e-mail, sem rejeitar mensagens. | RN-49: as mensagens esperam sem gastar tentativas. |
 | 8 | Validar o payload com os schemas de `contratos/notificacoes/`, **com validação de `format` ligada**. Payload inválido: DLQ, sem tentar de novo. | No draft 2020-12, `format` (uuid, email, date-time) é só anotação por padrão; sem ligar, `"amanhã"` passa como data. |
 | 9 | Usar `chamado.id` para o link do sino e `chamado.numero` para exibição. Não consultar a API nem o banco do app-principal. | RN-58. A autorização de acesso ao chamado continua no app-principal (RN-45). |
