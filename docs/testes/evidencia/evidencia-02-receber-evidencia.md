@@ -71,7 +71,7 @@ Cada linha: a alteração feita no código de produção (e desfeita), os testes
 3. **O que Q7 e Q8 provam:** que a conferência do teto existe e vem antes da leitura dos pixels. Elas não medem memória: o teste confia no fato de que decodificar 100000x100000 falharia (erro de dados ou de memória).
 4. **O teste do órfão** usa uma trigger criada e removida pelo próprio teste, no mesmo banco dos demais testes da classe (sequenciais); ela só atua em eventos `PROCESSAR_EVIDENCIA`.
 5. **Não verificado:**
-   - o fluxo no ambiente dev (`make run-dev`, seção 7G do plano de testes manuais, incluindo o download do objeto no console do MinIO);
+   - ~~o fluxo no ambiente dev (seção 7G)~~ (verificado no dev em 2026-11-16: ver "Verificação no ambiente dev" na evidencia-04); ficaram fora o 7G.10 (chamado ATRIBUIDO) e o download pelo console do MinIO (o objeto foi baixado pela API, conferido pelo hash);
    - a suíte completa com `TZ=UTC ./mvnw clean test` (rodei apenas as suítes afetadas, citadas acima);
    - upload de arquivos reais de câmera (HEIC não é aceito; JPEG com perfil CMYK, JPEG progressivo e WebP com perfil de cor não foram exercitados);
    - consumo de heap real com uma imagem próxima de 40 MP (o teto é calibração a confirmar com o heap de produção);

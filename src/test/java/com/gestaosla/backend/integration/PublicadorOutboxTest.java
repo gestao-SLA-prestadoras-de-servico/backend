@@ -11,6 +11,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.Timeout.ThreadMode;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageDeliveryMode;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
@@ -37,6 +39,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 @SpringBootTest
 @ActiveProfiles("test")
 @Import({TestcontainersConfiguration.class, RelogioMutavel.Configuracao.class})
+// Um ciclo que relê sempre o mesmo lote nunca termina: o teste falha em vez de travar a suíte.
+@Timeout(value = 60, threadMode = ThreadMode.SEPARATE_THREAD)
 class PublicadorOutboxTest {
 
     private static final Instant T0 = Instant.parse("2026-11-09T12:00:00Z");
@@ -49,6 +53,8 @@ class PublicadorOutboxTest {
         registro.add("spring.rabbitmq.password", () -> BrokerTeste.USUARIO);
         // Com o broker parado, o ciclo não espera os 5 s de produção.
         registro.add("app.outbox.publicador.espera-confirmacao", () -> "2s");
+        // Lote pequeno: os casos passam por mais de um lote no mesmo ciclo.
+        registro.add("app.outbox.publicador.tamanho-lote", () -> "2");
     }
 
     @Autowired
@@ -107,9 +113,10 @@ class PublicadorOutboxTest {
     }
 
     @Test
-    void shouldKeepEventPendingWhenThereIsNoDestinationQueueAndStopTheBatch() {
+    void shouldKeepReturnedEventPendingWithoutBlockingOtherDestinations() {
         UUID semFila = registrar(T0, "inexistente");
-        UUID seguinte = registrar(T0.plusSeconds(10), "interna");
+        UUID mesmoDestino = registrar(T0.plusSeconds(5), "inexistente");
+        UUID outroDestino = registrar(T0.plusSeconds(10), "interna");
 
         PublicadorOutboxTestHelper.publicarPendentes(contexto);
 
@@ -117,13 +124,32 @@ class PublicadorOutboxTest {
         assertThat(falhou.get("publicado_em")).isNull();
         assertThat(falhou).containsEntry("tentativas", 1);
         assertThat((String) falhou.get("ultimo_erro")).startsWith("Sem fila de destino");
-        assertThat(linha(seguinte)).containsEntry("publicado_em", null).containsEntry("tentativas", 0);
-        assertThat(rabbit.receive("notificacoes.interna", 500)).isNull();
+        // O seguinte do mesmo destino espera sem ser tentado: a ordem dentro da fila se mantém.
+        assertThat(linha(mesmoDestino)).containsEntry("publicado_em", null).containsEntry("tentativas", 0);
+        assertThat(linha(outroDestino).get("publicado_em")).isNotNull();
+        assertThat(receber("notificacoes.interna").getMessageProperties().getMessageId())
+                .isEqualTo(outroDestino.toString());
+    }
+
+    @Test
+    void shouldNotLoopWhenFullBatchesHoldOnlySkippedEvents() {
+        // Lote de 2: sem a leitura por keyset, o primeiro lote voltaria sempre com os mesmos dois pulados.
+        for (int i = 0; i < 5; i++) {
+            registrar(T0.plusSeconds(i), "inexistente");
+        }
+        UUID depois = registrar(T0.plusSeconds(10), "interna");
+
+        PublicadorOutboxTestHelper.publicarPendentes(contexto);
+
+        assertThat(linha(depois).get("publicado_em")).isNotNull();
+        assertThat(jdbc.queryForObject("select sum(tentativas) from outbox_eventos where publicado_em is null",
+                Long.class)).isEqualTo(1);
     }
 
     @Test
     void shouldKeepEventsPendingWhileBrokerIsDownAndPublishThemWhenItIsBack() {
         UUID evento = registrar(T0, "email");
+        UUID outroDestino = registrar(T0.plusSeconds(10), "interna");
         BrokerTeste.rabbitmqctl("stop_app");
         try {
             PublicadorOutboxTestHelper.publicarPendentes(contexto);
@@ -136,10 +162,13 @@ class PublicadorOutboxTest {
         assertThat(pendente.get("publicado_em")).isNull();
         assertThat(pendente).containsEntry("tentativas", 1);
         assertThat((String) pendente.get("ultimo_erro")).isNotBlank();
+        // Broker fora para o ciclo: os outros destinos nem são tentados.
+        assertThat(linha(outroDestino)).containsEntry("publicado_em", null).containsEntry("tentativas", 0);
 
         PublicadorOutboxTestHelper.publicarPendentes(contexto);
 
         assertThat(linha(evento).get("publicado_em")).isNotNull();
+        assertThat(linha(outroDestino).get("publicado_em")).isNotNull();
         assertThat(receber("notificacoes.email").getMessageProperties().getMessageId()).isEqualTo(evento.toString());
     }
 

@@ -60,7 +60,7 @@ Leitura: o processamento em segundo plano não mexeu na latência (p95 de 9 a 11
 4. **Isolamento:** o `ProcessadorEvidenciasTest` usa `@DirtiesContext(AFTER_CLASS)`: com o contexto vivo, o consumidor roubaria as mensagens que o `TopologiaRabbitTest` deixa em `evidencias.processamento` (broker único por JVM). Cada teste limpa as filas, a outbox e a tabela `evidencia`.
 5. **Mensagem duplicada simultânea** (duas entregas em `PROCESSANDO` ao mesmo tempo) não é testada: é a limitação documentada (sobrescrita idêntica).
 6. **Não verificado:**
-   - o fluxo no ambiente dev (`make run-dev`, seção 7H do plano de testes manuais, incluindo ver a DLQ no console do RabbitMQ);
+   - ~~o fluxo no ambiente dev (seção 7H)~~ (verificado no dev em 2026-11-16: ver "Verificação no ambiente dev" na evidencia-04);
    - a suíte completa com `TZ=UTC ./mvnw clean test` (rodei só as suítes afetadas listadas no item 2);
    - banco fora do ar durante o processamento (o caminho "não consegui nem marcar `FALHA`" não tem teste);
    - imagem real de 40 MP no consumidor (consumo de heap com concorrência 2);

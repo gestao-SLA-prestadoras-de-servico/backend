@@ -1137,7 +1137,7 @@
     },
     "/api/evidencias/{id}/conteudo" : {
       "get" : {
-        "description" : "Os três papéis, dentro do isolamento do chamado (senão 404). `variante`: `visualizacao` (padrão, JPEG de até 1280 px), `miniatura` (JPEG de até 320 px) ou `original`. Se o derivado pedido ainda não existe (evidência RECEBIDA, PROCESSANDO ou FALHA), serve o original. Resposta em streaming, com `Content-Type`, `Content-Length`, `ETag` forte e `Cache-Control: private`; `If-None-Match` igual responde 304 sem ler o storage. Evidência EXPURGADA: 410 `EVIDENCIA_EXPURGADA`. Variante desconhecida: 400.",
+        "description" : "Os três papéis, dentro do isolamento do chamado (senão 404). `variante`: `visualizacao` (padrão, JPEG de até 1280 px), `miniatura` (JPEG de até 320 px) ou `original`. Se o derivado pedido ainda não existe (evidência RECEBIDA, PROCESSANDO ou FALHA), serve o original. Resposta em streaming, com `Content-Type`, `Content-Length`, `ETag` forte e `Cache-Control: private, no-cache` (o navegador revalida sempre, então perder o acesso vale na hora); `If-None-Match` igual responde 304 sem ler o storage. Evidência EXPURGADA: 410 `EVIDENCIA_EXPURGADA`. Variante desconhecida: 400.",
         "operationId" : "conteudo",
         "parameters" : [ {
           "in" : "path",

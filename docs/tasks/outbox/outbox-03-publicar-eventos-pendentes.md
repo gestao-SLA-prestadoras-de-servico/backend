@@ -41,6 +41,7 @@ Um publicador lê os eventos pendentes da outbox e os entrega ao RabbitMQ com co
 ## Atenção ao atualizar um ambiente existente
 
 - Não há migração nem variável nova. As propriedades novas estão no `application.properties`.
+- **Alterado pela [outbox - 05]:** devolução e nack não param mais o ciclo, só o destino do evento. O item abaixo descreve o comportamento original.
 - **Um evento que nunca encontra fila trava a outbox**: o ciclo para nele, e todos os eventos criados depois esperam (ordem de criação, como pede a task). A métrica `outbox_pendente_mais_antigo_idade_seconds` crescendo mostra isso. Hoje não há código que grave routing key fora da topologia; se acontecer, corrija a topologia ou apague o evento.
 - **`/actuator/prometheus` exige token** (`SegurancaConfig` só libera `/actuator/health/**`). Um coletor Prometheus sem token não lê as métricas; ver docs de testes.
 

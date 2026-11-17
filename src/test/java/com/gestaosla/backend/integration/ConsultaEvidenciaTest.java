@@ -225,7 +225,7 @@ class ConsultaEvidenciaTest {
         assertThat(visualizacao.getContentType()).isEqualTo("image/jpeg");
         assertThat(visualizacao.getHeader(HttpHeaders.CONTENT_LENGTH)).isEqualTo(String.valueOf(visualizacao.getContentAsByteArray().length));
         assertThat(visualizacao.getHeaders(HttpHeaders.ETAG)).containsExactly("\"" + hash + "-visualizacao\"");
-        assertThat(visualizacao.getHeader(HttpHeaders.CACHE_CONTROL)).contains("private").doesNotContain("public");
+        assertThat(visualizacao.getHeader(HttpHeaders.CACHE_CONTROL)).contains("private", "no-cache").doesNotContain("public", "max-age");
         assertThat(visualizacao.getHeader(HttpHeaders.CONTENT_DISPOSITION)).isEqualTo("inline");
         assertThat(visualizacao.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
 
@@ -250,7 +250,7 @@ class ConsultaEvidenciaTest {
 
         assertThat(r.getStatus()).isEqualTo(304);
         assertThat(r.getContentAsByteArray()).isEmpty();
-        assertThat(r.getHeader(HttpHeaders.CACHE_CONTROL)).contains("private");
+        assertThat(r.getHeader(HttpHeaders.CACHE_CONTROL)).contains("private", "no-cache").doesNotContain("max-age");
         assertThat(r.getHeaders(HttpHeaders.ETAG)).containsExactly(etag);
         Mockito.verify(s3, Mockito.never()).getObject(any(Consumer.class));
 
@@ -260,6 +260,63 @@ class ConsultaEvidenciaTest {
         // Quem não vê o chamado não descobre nada pelo ETag: 404 antes de comparar.
         String outro = ChamadoTeste.usuario(jdbc, "CLIENTE", ChamadoTeste.cliente(jdbc));
         assertThat(baixar(outro, "CLIENTE", base, HttpHeaders.IF_NONE_MATCH, etag).getStatus()).isEqualTo(404);
+    }
+
+    // Revogar o acesso vale na hora: o navegador revalida sempre, e a revalidação do técnico antigo dá 404, nunca 304.
+    @Test
+    void shouldAnswer404NotModifiedToATechnicianWhoLostTheChamadoOnRevalidation() throws Exception {
+        UUID id = inserir(chamado, atendimento, "DISPONIVEL", true, T0, png());
+        String base = "/api/evidencias/" + id + "/conteudo";
+        String antigo = tecnico.toString();
+        MockHttpServletResponse primeira = baixar(antigo, "TECNICO", base);
+        assertThat(primeira.getStatus()).isEqualTo(200);
+        String etag = primeira.getHeader(HttpHeaders.ETAG);
+        assertThat(baixar(antigo, "TECNICO", base, HttpHeaders.IF_NONE_MATCH, etag).getStatus()).isEqualTo(304);
+
+        UUID novo = UUID.fromString(ChamadoTeste.usuario(jdbc, "TECNICO", null));
+        jdbc.update("update chamado set tecnico_sub = ? where id = ?", novo, chamado);
+
+        assertThat(baixar(antigo, "TECNICO", base, HttpHeaders.IF_NONE_MATCH, etag).getStatus()).isEqualTo(404);
+        assertThat(baixar(novo.toString(), "TECNICO", base, HttpHeaders.IF_NONE_MATCH, etag).getStatus()).isEqualTo(304);
+    }
+
+    // HEAD (atendido pelo @GetMapping) responde os mesmos cabeçalhos do GET, sem corpo, e não deixa stream do storage aberto.
+    @Test
+    void shouldAnswerHeadWithTheSameHeadersAsGetAndLeaveNoStorageStreamOpen() throws Exception {
+        UUID id = inserir(chamado, atendimento, "DISPONIVEL", true, T0, png());
+        AtomicLong abertos = new AtomicLong();
+        AtomicLong fechados = new AtomicLong();
+        Mockito.doAnswer(chamada -> {
+            @SuppressWarnings("unchecked")
+            ResponseInputStream<GetObjectResponse> real = (ResponseInputStream<GetObjectResponse>) chamada.callRealMethod();
+            abertos.incrementAndGet();
+            InputStream contador = new FilterInputStream(real) {
+                @Override
+                public void close() throws IOException {
+                    fechados.incrementAndGet();
+                    super.close();
+                }
+            };
+            return new ResponseInputStream<>(real.response(), AbortableInputStream.create(contador, real::abort));
+        }).when(s3).getObject(any(Consumer.class));
+        String uri = "http://localhost:" + porta + "/api/evidencias/" + id + "/conteudo";
+        HttpClient cliente = HttpClient.newHttpClient();
+
+        HttpResponse<byte[]> get = cliente.send(HttpRequest.newBuilder(URI.create(uri)).header("Authorization", token(SUB_GESTOR, "GESTOR")).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        Mockito.clearInvocations(s3);
+        abertos.set(0);
+        fechados.set(0);
+        HttpResponse<byte[]> head = cliente.send(HttpRequest.newBuilder(URI.create(uri)).header("Authorization", token(SUB_GESTOR, "GESTOR"))
+                .method("HEAD", HttpRequest.BodyPublishers.noBody()).build(), HttpResponse.BodyHandlers.ofByteArray());
+
+        assertThat(head.statusCode()).isEqualTo(200);
+        assertThat(head.body()).isEmpty();
+        for (String cabecalho : List.of("Content-Type", "Content-Length", "ETag", "Cache-Control", "Content-Disposition")) {
+            assertThat(head.headers().allValues(cabecalho)).as(cabecalho).isEqualTo(get.headers().allValues(cabecalho));
+        }
+        assertThat(head.headers().firstValueAsLong("Content-Length")).hasValue(get.body().length);
+        assertThat(abertos.get() - fechados.get()).as("streams do storage abertos e não fechados após o HEAD (abertos=" + abertos + ")").isZero();
     }
 
     // RN-81, RN-104: EXPURGADA responde 410 em qualquer variante; os metadados continuam na listagem.

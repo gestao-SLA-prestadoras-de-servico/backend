@@ -260,7 +260,7 @@ values (gen_random_uuid(), '<ID>', 'ATRIBUICAO', 'notificacoes', 'interna', '{"e
 | 7C.1 | Inserir o evento e esperar 5 s | `publicado_em` preenchido; `notificacoes.interna` com 1 mensagem, `message_id` = `<ID>` |
 | 7C.2 | `docker compose ... stop rabbitmq`, inserir outro evento (routing key `email`) e esperar 10 s | `publicado_em` nulo, `tentativas` ≥ 1, `ultimo_erro` preenchido |
 | 7C.3 | `docker compose ... start rabbitmq` e esperar | O evento é publicado; `notificacoes.email` com 1 mensagem |
-| 7C.4 | Inserir um evento com routing key `inexistente` | Fica pendente com `ultimo_erro` "Sem fila de destino"; os eventos criados depois dele também ficam pendentes. Apague-o (`delete from outbox_eventos where evento_id = '<ID>'`) para o publicador seguir |
+| 7C.4 | Inserir um evento com routing key `inexistente` e, depois, um com routing key `interna` ([outbox - 05]) | O primeiro fica pendente com `ultimo_erro` "Sem fila de destino" e `tentativas` crescendo a cada ciclo; o `interna` é publicado mesmo assim. Apague o primeiro (`delete from outbox_eventos where evento_id = '<ID>'`) |
 | 7C.5 | Esvaziar as filas usadas (como no 7B.5) | Filas vazias |
 
 As métricas `outbox_*` estão em `/actuator/prometheus`, que hoje exige token.
@@ -354,7 +354,7 @@ Segue o 7G.1 (evidência **EV** enviada; use uma foto grande, por exemplo 4000x3
 | 7H.2 | No console do MinIO, bucket `evidencias`, pasta de EV: baixe os dois derivados e rode `python3 -c "from PIL import Image; print(Image.open('miniatura.jpg').size, Image.open('visualizacao.jpg').size)"` | Lado maior 320 e 1280, mesma proporção; o `original.jpg` com o mesmo `sha256sum` de antes |
 | 7H.3 | No console do RabbitMQ (http://localhost:15672), fila `evidencias.processamento` | Vazia (0 ready, 0 unacked) |
 | 7H.4 | `curl -s -H "Authorization: Bearer $TG" http://localhost:8080/actuator/prometheus \| grep '^evidencias'` (token de gestor) | Uma linha por estado, `DISPONIVEL` com a contagem certa |
-| 7H.5 | Falha: pare o MinIO (`docker stop <container do minio>`), envie outra foto e espere ~15 s; veja o log da aplicação e `select estado from evidencia where id = '{EV2}'` | 3 tentativas no log (1 s e 2 s de espera), depois `FALHA`; no console do RabbitMQ a `evidencias.processamento.dlq` tem 1 mensagem e a principal está vazia. Religue o MinIO |
+| 7H.5 | Falha: envie outra foto (**EV2**, 202) e, **logo em seguida**, antes de o publicador rodar, pare o MinIO (`docker stop infra-minio-1`); espere ~25 s, veja o log da aplicação e `select estado from evidencia where id = '{EV2}'`. (Parar o MinIO **antes** de enviar dá 503 `SERVICO_INDISPONIVEL` no envio, e nada chega ao processamento.) | 3 tentativas no log (1 s e 2 s de espera), depois `FALHA`; no console do RabbitMQ a `evidencias.processamento.dlq` tem 1 mensagem a mais (as estatísticas atualizam com alguns segundos de atraso) e a principal está vazia. Religue o MinIO (`docker start infra-minio-1`) e espere uns 10 s: a JVM guarda por esse tempo a falha de DNS de `minio` e responde 503 enquanto isso |
 | 7H.6 | `select estado from chamado where id = '{CH}'` e o atendimento | Inalterados pela falha (RN-89) |
 
 ## 7I. Listar e baixar evidências ([evidência - 04])
@@ -365,7 +365,7 @@ Segue o 7H: EV (DISPONIVEL) no chamado CH, `TG` (gestor), `T2` (UT2, técnico at
 | --- | --- | --- |
 | 7I.1 | `curl -s -H "Authorization: Bearer $TG" $U/api/chamados/{CH}/evidencias` (repetir com `$T2` e `$TC`) | 200; lista por atendimento com `atendimentoId` e `evidencias[]` (id, nome, tipoConteudo, tamanho, hashSha256, estado `DISPONIVEL`, enviadaEm, expurgadaEm nulo) |
 | 7I.2 | Repetir o 7I.1 com `$TC2` e com o token de um técnico não atribuído | 404 |
-| 7I.3 | `curl -s -D - -o visualizacao.jpg -H "Authorization: Bearer $TG" $U/api/evidencias/{EV}/conteudo` | 200; `Content-Type: image/jpeg`, `Content-Length`, `ETag: "{hash}-visualizacao"`, `Cache-Control: max-age=86400, private`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`; lado maior 1280 |
+| 7I.3 | `curl -s -D - -o visualizacao.jpg -H "Authorization: Bearer $TG" $U/api/evidencias/{EV}/conteudo` | 200; `Content-Type: image/jpeg`, `Content-Length`, `ETag: "{hash}-visualizacao"`, `Cache-Control: private, no-cache`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`; lado maior 1280 |
 | 7I.4 | Repetir com `?variante=miniatura` (`-o miniatura.jpg`) e `?variante=original` (`-o original.jpg`) | Lado maior 320; o original com `sha256sum` igual ao `hashSha256` da lista |
 | 7I.5 | Repetir o 7I.3 com `-H 'If-None-Match: "{hash}-visualizacao"'` | 304, sem corpo |
 | 7I.6 | Repetir com `?variante=gigante` | 400 `VALIDACAO` |

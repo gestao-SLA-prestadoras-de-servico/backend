@@ -21,6 +21,15 @@ public final class ArmazenamentoTestHelper {
         this.armazenamento = contexto.getBean(ArmazenamentoEvidencias.class);
     }
 
+    /** Sobre um {@code S3Client} próprio (ex.: apontado para um servidor falso). */
+    public ArmazenamentoTestHelper(software.amazon.awssdk.services.s3.S3Client s3) {
+        this.armazenamento = new ArmazenamentoEvidencias(s3);
+    }
+
+    public void gravarStream(String chave, java.io.InputStream conteudo, long tamanho, String contentType) {
+        armazenamento.gravar(chave, conteudo, tamanho, contentType);
+    }
+
     public void garantirBucket() {
         armazenamento.garantirBucket();
     }

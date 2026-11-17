@@ -45,3 +45,7 @@ As evidências (arquivos e derivados) ficam no MinIO, não no banco. Esta task c
 ## Como verificar
 
 Ver `docs/testes/evidencia/evidencia-01-adaptador-object-storage.md`.
+
+## Ajustes da revisão (2026-11-16)
+
+**C. Retentativa do SDK com stream.** Suspeita: `RequestBody.fromInputStream(conteudo, tamanho)` só deixa o SDK repetir o PUT (3 tentativas) se o stream puder ser resetado, o que vale até o limite de mark/reset (128 KB); gravações maiores não seriam repetidas numa falha transitória. Observado (servidor HTTP local que responde 503 ao 1º PUT e 200 ao 2º, conteúdo de 400 KB, mesma configuração do `ArmazenamentoConfig`): com `ByteArrayInputStream`, que é o que os dois chamadores de produção (`RecepcaoEvidenciaService`, `GeradorDerivados`) passam, **a retentativa funciona**: o `ByteArrayInputStream` reseta sem limite (ignora o readlimit) e a 2ª tentativa chega íntegra. Com um stream de mark limitado (`BufferedInputStream`), o SDK falha com `Resetting to invalid mark` e não repete. Decisão: **código inalterado** (a correção só era para ser feita se a suspeita se confirmasse para os chamadores atuais; não se confirmou). O método de stream segue sendo o único de gravação e o critério de aceite. Risco que fica: um chamador futuro que passe um stream não resetável acima de 128 KB perde a retentativa; nesse caso, ler para `byte[]` e usar `RequestBody.fromBytes`.

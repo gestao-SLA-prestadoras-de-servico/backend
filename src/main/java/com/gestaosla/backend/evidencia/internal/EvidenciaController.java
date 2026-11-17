@@ -1,7 +1,6 @@
 package com.gestaosla.backend.evidencia.internal;
 
 import java.io.InputStream;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -54,8 +53,9 @@ class EvidenciaController {
     record EvidenciasDoAtendimento(UUID atendimentoId, List<ItemEvidencia> evidencias) {
     }
 
-    // O conteúdo de uma chave nunca muda (RN-77), então o navegador pode guardar; "private" porque o acesso é por usuário.
-    private static final CacheControl CACHE = CacheControl.maxAge(Duration.ofDays(1)).cachePrivate();
+    // O navegador guarda, mas revalida sempre (If-None-Match): sem max-age, quem perdeu o acesso (ex.: reatribuição) recebe
+    // 404 na revalidação em vez de continuar vendo a imagem pelo cache. "private" porque o acesso é por usuário.
+    private static final CacheControl CACHE = CacheControl.noCache().cachePrivate();
 
     private final RecepcaoEvidenciaService recepcao;
     private final ConsultaEvidenciaService consulta;
@@ -98,7 +98,7 @@ class EvidenciaController {
     @Operation(summary = "Baixar o conteúdo da evidência", description = "Os três papéis, dentro do isolamento do chamado (senão 404). "
             + "`variante`: `visualizacao` (padrão, JPEG de até 1280 px), `miniatura` (JPEG de até 320 px) ou `original`. Se o "
             + "derivado pedido ainda não existe (evidência RECEBIDA, PROCESSANDO ou FALHA), serve o original. Resposta em streaming, "
-            + "com `Content-Type`, `Content-Length`, `ETag` forte e `Cache-Control: private`; `If-None-Match` igual responde 304 "
+            + "com `Content-Type`, `Content-Length`, `ETag` forte e `Cache-Control: private, no-cache` (o navegador revalida sempre, então perder o acesso vale na hora); `If-None-Match` igual responde 304 "
             + "sem ler o storage. Evidência EXPURGADA: 410 `EVIDENCIA_EXPURGADA`. Variante desconhecida: 400.")
     @ApiResponse(responseCode = "200", description = "Bytes da imagem", content = @Content(mediaType = "image/*"))
     @ApiResponse(responseCode = "304", description = "Não modificado (`If-None-Match`)", content = @Content)

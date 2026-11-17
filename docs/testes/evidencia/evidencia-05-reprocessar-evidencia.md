@@ -44,6 +44,6 @@
 1. **R7c:** o teste de concorrência depende do entrelaçamento das duas threads (as duas precisam ler `FALHA` antes de qualquer `UPDATE`). A quebra foi pega na execução feita, mas o teste, por natureza, não garante ver o erro em toda execução; com o código de produção correto ele é determinístico (um 202 e um 422).
 2. **Mensagem antiga com a evidência ainda em `FALHA`:** é descartada (o `GeradorDerivados` só reivindica `RECEBIDA` e `PROCESSANDO`); está coberta pelo `shouldDiscardAvailableAndExpungedEvidenceWithoutProcessing` da evidencia-03 (que inclui `FALHA`).
 3. **Não verificado:**
-   - o fluxo no ambiente dev (seção 7J do plano de testes manuais), incluindo mover a mensagem da DLQ pelo console do RabbitMQ;
+   - mover a mensagem antiga da DLQ pelo console do RabbitMQ (7J.7); o resto da seção 7J foi verificado no dev(verificado no dev em 2026-11-16: ver "Verificação no ambiente dev" na evidencia-04);
    - a suíte completa com `TZ=UTC ./mvnw clean test`;
    - reprocessamento de evidência cujo original foi removido do storage (o reprocessamento vai a `FALHA` de novo, sem teste específico).

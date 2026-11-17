@@ -129,10 +129,10 @@ A cada `app.outbox.publicador.intervalo` (5 s):
 1. Lê até 100 pendentes, em ordem de `criado_em`.
 2. Publica um por vez e espera a confirmação do broker (até 5 s).
 3. Com ack e sem devolução: marca `publicado_em`.
-4. Na primeira falha, registra `tentativas` e `ultimo_erro` e **para o ciclo**. O evento é tentado de novo no ciclo seguinte.
-5. Se o lote veio cheio, lê o próximo lote no mesmo ciclo.
-
-Contam como falha: broker inacessível, confirm que não chega no prazo, nack e mensagem devolvida por falta de fila (`mandatory=true`).
+4. Na falha, registra `tentativas` e `ultimo_erro`, e o evento é tentado de novo no ciclo seguinte. O que acontece com os demais depende do tipo de falha:
+   - **broker inacessível ou confirm fora do prazo:** **para o ciclo**, porque os outros eventos também falhariam;
+   - **nack ou mensagem devolvida por falta de fila** (`mandatory=true`): o problema é daquele destino (exchange + routing key). Os eventos seguintes do mesmo destino esperam o próximo ciclo, sem tentativa, e a ordem dentro da fila se mantém. Os de outros destinos seguem (RN-48) ([outbox - 05]).
+5. Se o lote veio cheio, lê o próximo lote no mesmo ciclo, a partir do último lido (`(criado_em, id) > ...`).
 
 Consequência que o consumidor precisa conhecer: se a aplicação cair entre o confirm e a marcação, o evento é publicado de novo no próximo ciclo. **Duplicatas acontecem.**
 
@@ -276,8 +276,8 @@ Toda mudança desta tabela exige aprovação das duas equipes.
 
 | Sintoma | Causa provável | O que fazer |
 | --- | --- | --- |
-| `outbox_pendente_mais_antigo_idade_seconds` só cresce | Broker fora, ou um evento sem fila de destino travando o ciclo | Ver `ultimo_erro` do pendente mais antigo: `select evento_id, routing_key, tentativas, ultimo_erro from outbox_eventos where publicado_em is null order by criado_em limit 5;` |
-| `ultimo_erro` "Sem fila de destino" | Routing key fora da topologia | Corrigir a topologia ou apagar o evento. Enquanto ele existir, os eventos posteriores esperam (a ordem de criação é preservada). |
+| `outbox_pendente_mais_antigo_idade_seconds` só cresce | Broker fora, ou um evento sem fila de destino travando o próprio destino | Ver `ultimo_erro` do pendente mais antigo: `select evento_id, routing_key, tentativas, ultimo_erro from outbox_eventos where publicado_em is null order by criado_em limit 5;` |
+| `ultimo_erro` "Sem fila de destino" | Routing key fora da topologia | Corrigir a topologia ou apagar o evento. Enquanto ele existir, os eventos posteriores **do mesmo destino** esperam; os outros destinos seguem. |
 | Mensagens acumulando em `notificacoes.*` | ms-notificacoes parado ou com o circuit breaker aberto | Esperado: elas aguardam. Nada se perde. |
 | Mensagens em `notificacoes.*.dlq` | Falha definitiva no consumidor | Ver o motivo no ms-notificacoes; elas expiram em 7 dias. |
 | Notificação duplicada para o usuário | Consumidor sem idempotência | Ver a seção 5, regra 3. |
@@ -289,4 +289,4 @@ Para testar à mão, ver as seções 7B e 7C de `docs/plano-testes-manuais.md`.
 - **Ainda não há produtor de notificação:** os contratos e a outbox estão prontos, mas os eventos nascem nas tasks de chamado, SLA e encerramento automático.
 - **`/actuator/prometheus` exige token:** a `SegurancaConfig` libera só `/actuator/health/**`, então um coletor Prometheus sem token não lê as métricas da outbox. A liberação está pendente de decisão.
 - **Instância única:** o publicador não tem trava distribuída (RN-116). Rodar duas instâncias do app-principal publicaria eventos em dobro; isso exigiria uma trava (ex.: ShedLock).
-- **Um evento travado segura a fila inteira** (seção 7). É consequência de manter a ordem de criação.
+- **Um evento travado segura o próprio destino** (seção 7): os eventos seguintes com a mesma exchange e routing key esperam, para manter a ordem dentro da fila. Os outros destinos não são afetados.
