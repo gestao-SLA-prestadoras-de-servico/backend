@@ -129,6 +129,11 @@ public class Chamado extends EntidadeBase {
         return anterior;
     }
 
+    /** Aviso prévio da validação automática enviado (RN-34); a reabertura o limpa. */
+    void registrarAviso(Instant instante) {
+        this.avisoEnviadoEm = instante;
+    }
+
     void registrarMotivoCancelamento(String motivo) {
         this.motivoCancelamento = motivo;
     }

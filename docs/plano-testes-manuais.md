@@ -407,6 +407,19 @@ Usa o chamado **CH** do 7G (EM_ATENDIMENTO, com a evidência **EV** enviada por 
 | 7K.11 | Como **TC**: reabrir CH | 422 `REABERTURA_NAO_PERMITIDA` |
 | 7K.12 | Como gestor: `GET /api/usuarios/{id de UT2}/chamados-a-transferir` | 200 com `ATRIBUIDO`, `EM_ATENDIMENTO` e `RESOLVIDO`, conforme os chamados não finalizados de UT2 (CH3 conta em `EM_ATENDIMENTO`) |
 
+## 7L. Rotinas de violação e de validação automática ([chamado - 14] e [chamado - 15])
+
+As rotinas rodam sozinhas: a de violação a cada 15 minutos (:00, :15, :30 e :45) e a de validação automática na hora cheia. Os passos adiantam os prazos por SQL, no banco `app_principal`, e esperam a próxima passada. Usa o chamado **CH3** do 7K (EM_ATENDIMENTO, de UT2) e um chamado **CHR**, aberto, atribuído, iniciado e concluído como no 7K.3, que fica RESOLVIDO.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7L.1 | `update relogio_sla set vence_em = now() - interval '1 minute' where chamado_id = '{CH3}' and tipo = 'RESOLUCAO' and ativo;` e esperar a próxima passada de 15 minutos | `violado_em` igual ao `vence_em` gravado; `GET /api/chamados/{CH3}` mostra `comViolacao: true` e o relógio RESOLUCAO `VIOLADO` |
+| 7L.2 | `select routing_key, payload->>'relogio', payload->'destinatarios' from outbox_eventos where tipo = 'VIOLACAO' and payload->'chamado'->>'id' = '{CH3}';` e o histórico `GET /api/chamados/{CH3}/historico` | Um evento `interna`, `RESOLUCAO`, com os gestores ativos e UT2; no histórico, `VIOLACAO_SLA` sem ator |
+| 7L.3 | Esperar mais uma passada | Nenhum evento `VIOLACAO` novo para CH3 |
+| 7L.4 | `curl -s -H "Authorization: Bearer $TG" http://localhost:8080/actuator/prometheus \| grep '^sla_violacoes'` | `sla_violacoes_total{relogio="RESOLUCAO",...}` com pelo menos 1 |
+| 7L.5 | `update chamado set resolvido_em = now() - interval '7 days' where id = '{CHR}';` e esperar a próxima hora cheia | `aviso_enviado_em` preenchido; um `AVISO_ENCERRAMENTO` (`email`) para o e-mail de contato da empresa, com `encerramentoPrevistoEm` 1 dia útil depois do aviso; CHR segue RESOLVIDO |
+| 7L.6 | `update chamado set aviso_enviado_em = now() - interval '7 days' where id = '{CHR}';` e esperar a próxima hora cheia | CHR `ENCERRADO`, com `estadoFinalEm`; `GET /api/chamados/{CHR}/sla` → `apurado: true`; auditoria `VALIDACAO_AUTOMATICA` e `MUDANCA_ESTADO` com `ator_sub` nulo; um só `AVISO_ENCERRAMENTO` |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |

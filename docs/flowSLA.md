@@ -345,7 +345,7 @@ Identificados como `RF-XX`. A coluna **Perfil** indica quem executa.
 | RF-32 | Recalcular os prazos de atendimento em campo e de resolução na reabertura, usando a data e hora da reabertura como marco | Sistema |
 | RF-33 | Registrar a violação de cada SLA no instante em que o prazo é ultrapassado | Sistema |
 | RF-34 | Executar rotina que varre chamados abertos, marca prazos vencidos e registra os eventos de violação, a cada 15 minutos | Sistema |
-| RF-35 | Executar rotina diária que valida automaticamente chamados resolvidos há 3 dias úteis e envia o aviso prévio | Sistema |
+| RF-35 | Executar rotina, de hora em hora, que valida automaticamente chamados resolvidos há 3 dias úteis e envia o aviso prévio; se o aviso sair atrasado, o encerramento espera 1 dia útil depois dele | Sistema |
 | RF-36 | Congelar a apuração dos três SLAs no encerramento do chamado | Sistema |
 | RF-37 | Consultar o resultado de SLA de um chamado encerrado | Todos |
 

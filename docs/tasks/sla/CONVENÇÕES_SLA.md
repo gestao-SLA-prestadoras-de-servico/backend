@@ -230,6 +230,8 @@ Outros módulos só importam `com.gestaosla.backend.sla.api`. O sla importa só 
 | `RelogiosSla.cumprir(chamadoId, tipo, instante)` | Cumpre o relógio ativo do tipo; devolve `ResultadoCumprimento(cumpriuAgora, Optional<Violacao>)` |
 | `RelogiosSla.recalcularPorPrioridade(chamadoId, versao, novaPrioridade)` | Recalcula os relógios correndo; devolve as violações marcadas agora |
 | `RelogiosSla.reiniciarParaReabertura(chamadoId, versao, prioridade, instante)` | Novo ciclo de CAMPO e RESOLUCAO; devolve violações pendentes do ciclo encerrado |
+| `RelogiosSla.travarVencidos(agora, aposVenceEm, aposId, limite)` | Relógios correndo com `vence_em < agora`, em ordem `(vence_em, id)` depois do cursor, travados com `SKIP LOCKED`; devolve `RelogioVencido(id, chamadoId, venceEm)` ([chamado - 14]) |
+| `RelogiosSla.marcarViolacao(relogioId)` | Marca a violação com `violado_em = vence_em`; vazio se já estava marcada ([chamado - 14]) |
 | `RelogiosSla.relogiosAtivos(chamadoId)` / `historico(chamadoId)` | `RelogioView` com o estado derivado, por tipo e ciclo |
 | `ApuracaoSla.congelarApuracao(chamadoId, clienteId, prioridade, tecnicoSub)` | Congela; devolve as violações marcadas no congelamento |
 | `ApuracaoSla.consultarApuracao(chamadoId)` | `Optional<ApuracaoChamado>`; vazio = sem apuração |
@@ -250,7 +252,7 @@ Para o módulo chamado:
 3. **Prioridade definida ou alterada:** `recalcularPorPrioridade` com a versão guardada.
 4. **Reabertura:** `reiniciarParaReabertura` com a versão guardada e a prioridade atual.
 5. **Encerramento:** `congelarApuracao` com cliente, prioridade e técnico responsável. **Cancelamento:** não chamar.
-6. **Rotina de 15 minutos ([chamado - 14]):** ainda não existe; vai precisar de um método novo no sla que viole os vencidos usando `marcarViolacao` (o índice `relogio_sla_correndo_idx` já está pronto para ela).
+6. **Rotina de 15 minutos ([chamado - 14]):** `RotinaViolacao` chama `travarVencidos` lote a lote e `marcarViolacao` em cada relógio de chamado não finalizado (os do cancelado continuam ativos e são pulados pelo estado do chamado).
 
 ## 5. Banco
 
@@ -307,7 +309,7 @@ Sem o módulo chamado, nada aciona os relógios pela API. À mão dá para confe
 
 ## 8. Limites conhecidos
 
-- **Só a abertura e a prioridade acionam o sla:** cumprimento, reabertura e congelamento ainda não têm operação no chamado que os chame; rodam só nos testes.
-- **Sem a rotina de 15 minutos:** um relógio vencido só é violado quando alguém o toca (cumprimento, recálculo, reabertura ou congelamento).
+- **Quem aciona o sla hoje:** abertura e prioridade ([chamado - 03] a [chamado - 05]), posicionamento e início do atendimento (cumprimento), conclusão (cumprimento da resolução), reabertura, validação e validação automática (congelamento) e a rotina de violação ([chamado - 06] a [chamado - 15]).
+- **Violação detectada em até 15 minutos** pela `RotinaViolacao` ([chamado - 14]), ou antes, quando alguém toca o relógio (cumprimento, recálculo, reabertura ou congelamento). O `violado_em` é sempre o vencimento.
 - **Sem feriados** (RN-63).
 - **Endpoint verificado por testes de integração, não no dev com token real**, pelo mesmo limite do cadastro. As migrações V10 e V11 foram verificadas num ambiente de dev subido a partir de uma cópia.
