@@ -316,6 +316,16 @@ Usa CH atribuído a UT2 (7E.7), um segundo gestor (**UG**, do 5) e um chamado no
 | 7F.8 | Como gestor: `POST /api/chamados/{CH2}/cancelamento` com `{"motivo": "Aberto por engano"}` | 200; `estado: CANCELADO`, `estadoFinalEm` preenchido; `GET /api/chamados/{CH2}/sla` → `apurado: false` |
 | 7F.9 | Repetir o 7F.8 | 422 `CANCELAMENTO_NAO_PERMITIDO` |
 
+## 7G. Retenção da outbox
+
+Use um ambiente descartável com dados sintéticos. Configure `app.retencao.cron`
+para iniciar um ciclo no horário de teste e acompanhe o log da etapa `outbox`.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7G.1 | Prepare três linhas: uma publicada há oito dias, outra há seis dias e uma pendente criada há oito dias. Aguarde o ciclo. | Só a publicação de oito dias é removida. |
+| 7G.2 | Confira o log e as métricas da etapa `outbox`. | O log e `retencao.itens` mostram um item removido. `retencao.duracao` registra a execução. |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |

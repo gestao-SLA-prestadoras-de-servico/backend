@@ -176,6 +176,15 @@ Trocar o técnico (atribuição, reatribuição e transferência por inativaçã
 
 Consultas de chamado passam sempre pelo escopo do usuário (`ConsultaChamadoService`): gestor vê todos, cliente os da própria empresa, técnico os atribuídos a ele agora; fora do escopo é 404 (RN-126), e parâmetros como `clienteId` não ampliam nada. Outro módulo que precise saber se o usuário vê um chamado usa `chamado.api.AcessoChamado.podeAcessar`. Cada perfil tem a sua visão (`ChamadoGestor`, `ChamadoCliente`, `ChamadoTecnico`); a do técnico nunca leva contrato nem política.
 
+## Retenção e expurgo
+
+A rotina roda diariamente às 02:00 em `FUSO_HORARIO`. A propriedade Spring
+`app.retencao.cron` permite ajustar o horário, por exemplo com o argumento
+`--app.retencao.cron="0 0 3 * * *"`. O valor `-` desativa o agendamento.
+Cada passo trabalha em lotes de 100 e registra itens removidos, falhas e duração
+nas métricas `retencao.itens`, `retencao.falhas` e `retencao.duracao`, com a tag `passo`.
+O primeiro passo remove da outbox eventos publicados há mais de sete dias.
+
 ## Erros da API
 
 Todo erro sai como Problem Details (RFC 9457) com o campo `codigo`, tratado no `shared.internal.GlobalExceptionHandler`. Regra de negócio: `throw new RegraNegocioException(CodigoErro.X, "mensagem")` (422); recurso inexistente ou de outro cliente: `throw new RecursoNaoEncontradoException()` (404). Status, códigos e catálogo em `docs/erros-api.md`.
