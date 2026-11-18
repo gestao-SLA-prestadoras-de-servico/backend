@@ -53,6 +53,10 @@ class EvidenciaController {
     record EvidenciasDoAtendimento(UUID atendimentoId, List<ItemEvidencia> evidencias) {
     }
 
+    record MetadadosEvidencia(UUID id, UUID atendimentoId, UUID chamadoId, Instant enviadaEm, Instant expurgadaEm,
+            String hashSha256, EstadoEvidencia estado) {
+    }
+
     // O navegador guarda, mas revalida sempre (If-None-Match): sem max-age, quem perdeu o acesso (ex.: reatribuição) recebe
     // 404 na revalidação em vez de continuar vendo a imagem pelo cache. "private" porque o acesso é por usuário.
     private static final CacheControl CACHE = CacheControl.noCache().cachePrivate();
@@ -80,8 +84,8 @@ class EvidenciaController {
     }
 
     @Operation(summary = "Listar evidências do chamado", description = "Os três papéis, dentro do isolamento do chamado (outro cliente "
-            + "ou técnico não atribuído recebe 404). Agrupadas por atendimento e ordenadas por `enviadaEm`; as EXPURGADAS "
-            + "continuam na lista, só com os metadados (RN-104). Sem paginação.")
+            + "ou técnico não atribuído recebe 404). Agrupadas por atendimento e ordenadas por `enviadaEm`. "
+            + "Somente o GESTOR vê itens EXPURGADA, com o estado e os metadados, sem miniatura (RF-46, RN-104). Sem paginação.")
     @ApiResponse(responseCode = "200", description = "Evidências por atendimento")
     @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
     @GetMapping("/chamados/{id}/evidencias")
@@ -93,6 +97,18 @@ class EvidenciaController {
                     e.getNome(), e.getTipoConteudo(), e.getTamanho(), e.getHashSha256(), e.getEstado(), e.getEnviadaEm(), e.getExpurgadaEm()));
         }
         return porAtendimento.entrySet().stream().map(a -> new EvidenciasDoAtendimento(a.getKey(), a.getValue())).toList();
+    }
+
+    @Operation(summary = "Consultar metadados da evidência",
+            description = "Somente o GESTOR. Retorna os metadados de rastreabilidade, inclusive no estado EXPURGADA, sem ler o conteúdo.")
+    @ApiResponse(responseCode = "200", description = "Metadados da evidência")
+    @ApiResponse(responseCode = "404", ref = RespostasErro.NAO_ENCONTRADO)
+    @GetMapping("/evidencias/{id}")
+    @PreAuthorize("hasRole('GESTOR')")
+    MetadadosEvidencia metadados(@PathVariable UUID id, @AuthenticationPrincipal UsuarioCorrente usuario) {
+        Evidencia e = consulta.consultar(id, usuario);
+        return new MetadadosEvidencia(e.getId(), e.getAtendimentoId(), e.getChamadoId(), e.getEnviadaEm(),
+                e.getExpurgadaEm(), e.getHashSha256(), e.getEstado());
     }
 
     @Operation(summary = "Baixar o conteúdo da evidência", description = "Os três papéis, dentro do isolamento do chamado (senão 404). "

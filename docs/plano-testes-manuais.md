@@ -371,8 +371,9 @@ Segue o 7H: EV (DISPONIVEL) no chamado CH, `TG` (gestor), `T2` (UT2, técnico at
 | 7I.6 | Repetir com `?variante=gigante` | 400 `VALIDACAO` |
 | 7I.7 | Evidência ainda `RECEBIDA` (envie outra e baixe antes do publicador rodar, ou use a de falha do 7H.5): `curl -D - -o x.jpg ... /conteudo` | 200 com o original (`ETag` terminando em `-original`) |
 | 7I.8 | Com `$TC2`: `curl -i $U/api/evidencias/{EV}/conteudo` | 404 |
-| 7I.9 | `update evidencia set estado = 'EXPURGADA', expurgada_em = now() where id = '{EV}';` e repetir o 7I.3 | 410 `EVIDENCIA_EXPURGADA`; a listagem (7I.1) ainda mostra a evidência com `expurgadaEm`. Desfaça o `update` se for usar EV de novo |
-| 7I.10 | `curl -i -X DELETE -H "Authorization: Bearer $TG" $U/api/evidencias/{EV}` | 404 (não existe exclusão) |
+| 7I.9 | Em massa descartável, use uma evidência `EXPURGADA` com `expurgadaEm` preenchido e repita 7I.3 e 7I.1 | Conteúdo retorna 410 `EVIDENCIA_EXPURGADA`. A listagem inclui o item apenas para o gestor, com estado e data do expurgo, sem miniatura. |
+| 7I.10 | `curl -i -X DELETE -H "Authorization: Bearer $TG" $U/api/evidencias/{EV}` | 405 |
+| 7I.11 | `curl -i -H "Authorization: Bearer $TG" $U/api/evidencias/{EV}` com a evidência expurgada de 7I.9. Repita com `$T2` e `$TC`. | Para gestor, 200 com id, atendimentoId, chamadoId, enviadaEm, expurgadaEm, hashSha256 e estado. Para técnico e cliente, 403. |
 
 ## 7J. Reprocessar evidência ([evidência - 05])
 

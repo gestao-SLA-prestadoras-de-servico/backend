@@ -15,6 +15,7 @@ class EvidenciaRegrasAcesso {
     RegrasAcesso regrasEvidencia() {
         return rotas -> {
             rotas.requestMatchers(HttpMethod.POST, "/api/chamados/*/evidencias").hasRole("TECNICO");
+            rotas.requestMatchers(HttpMethod.GET, "/api/evidencias/*").hasRole("GESTOR");
             rotas.requestMatchers(HttpMethod.GET, "/api/evidencias/**").hasAnyRole("GESTOR", "TECNICO", "CLIENTE");
             rotas.requestMatchers(HttpMethod.POST, "/api/evidencias/*/reprocessamento").hasRole("GESTOR");
         };

@@ -9,6 +9,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.gestaosla.backend.chamado.api.AcessoChamado;
 import com.gestaosla.backend.identidade.api.UsuarioCorrente;
+import com.gestaosla.backend.shared.api.Papel;
 import com.gestaosla.backend.shared.api.RecursoNaoEncontradoException;
 
 import lombok.RequiredArgsConstructor;
@@ -34,12 +35,20 @@ class ConsultaEvidenciaService {
         if (!acesso.podeAcessar(usuario, chamadoId)) {
             throw new RecursoNaoEncontradoException();
         }
-        return evidencias.findByChamadoIdOrderByEnviadaEmAscIdAsc(chamadoId);
+        var itens = evidencias.findByChamadoIdOrderByEnviadaEmAscIdAsc(chamadoId);
+        if (usuario.papel() == Papel.GESTOR) {
+            return itens;
+        }
+        return itens.stream().filter(e -> e.getEstado() != EstadoEvidencia.EXPURGADA).toList();
+    }
+
+    Evidencia consultar(UUID id, UsuarioCorrente usuario) {
+        return evidencias.findById(id).filter(e -> acesso.podeAcessar(usuario, e.getChamadoId()))
+                .orElseThrow(RecursoNaoEncontradoException::new);
     }
 
     Conteudo localizar(UUID id, Variante pedida, UsuarioCorrente usuario) {
-        Evidencia evidencia = evidencias.findById(id).filter(e -> acesso.podeAcessar(usuario, e.getChamadoId()))
-                .orElseThrow(RecursoNaoEncontradoException::new);
+        Evidencia evidencia = consultar(id, usuario);
         if (evidencia.getEstado() == EstadoEvidencia.EXPURGADA) {
             throw new ResponseStatusException(HttpStatus.GONE, "A evidência foi expurgada.");
         }
