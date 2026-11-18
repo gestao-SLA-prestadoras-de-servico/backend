@@ -246,6 +246,7 @@ O ambiente sobe o backend e as dependências dele. O backend só inicia depois q
 | MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
 | Keycloak   | http://localhost:8081                          | console admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`; realm `flowsla` importado de `infra/keycloak/realm-flowsla.json` |
 | Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
+| ms-notificacoes | http://localhost:8082                     | só com `make run-dev` (profile `ms`), construído de `../ms-notifications`; o `ci-run-dev` não o sobe |
 
 Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam na rede `flowsla-<ENVIRONMENT>`, que o ms-notificacoes usa como rede externa para acessar o PostgreSQL e o RabbitMQ compartilhados.
 

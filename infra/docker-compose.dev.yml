@@ -38,6 +38,7 @@ services:
 
   # Repositório irmão ../../ms-notifications. Host 8082, porque a 8081 do host é do Keycloak.
   ms-notificacoes:
+    profiles: [ms] # fora do CI: o contexto de build é outro repositório
     build:
       context: ../../ms-notifications
     environment:

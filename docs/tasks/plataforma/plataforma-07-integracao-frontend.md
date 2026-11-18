@@ -28,5 +28,5 @@ O ms-notificacoes só subia pela stack própria dele, com outro RabbitMQ e outro
 
 ## Como aplicar num dev já existente (sem `down -v`)
 
-1. Recriar os containers com o compose atualizado: `docker compose --env-file .envs/.env.dev -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d --build ms-notificacoes backend-app`.
+1. Recriar os containers com o compose atualizado: `docker compose --env-file .envs/.env.dev -f infra/docker-compose.yml -f infra/docker-compose.dev.yml --profile ms up -d --build ms-notificacoes backend-app`.
 2. No console do Keycloak (`localhost:8081`, realm `flowsla`, client `flowsla-frontend`), trocar `5173` por `4200` em Valid redirect URIs, Web origins e Valid post logout redirect URIs.
