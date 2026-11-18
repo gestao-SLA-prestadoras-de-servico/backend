@@ -13,4 +13,13 @@
 ## Observações
 
 - Na primeira execução, `OpenApiContratoTest` regravou o documento para incluir a nova rota. `ContratoNotificacaoTest` acusou diferença textual dos JSONs no Windows. Os schemas de notificação coincidiram após normalização dos fins de linha e ficaram fora do diff.
-- O ambiente Docker integrado e a interface no navegador não foram verificados nesta task.
+- Na implantação local posterior, a migração aplicada chegou à V15 e o backend
+  e o microsserviço responderam `UP`. O OpenAPI em execução publicou a nova
+  rota, a chamada sem token retornou 401 e ambos os serviços aceitaram CORS da
+  origem do frontend.
+- A build do Angular passou e o servidor em `localhost:4200` entregou o bundle
+  da tela com HTTP 200. O Keycloak aceitou o retorno `/app` e apresentou o
+  formulário. A sessão autenticada no navegador ficou sem verificação, pois a
+  senha local de gestor não estava disponível na configuração.
+- O agendamento foi desativado no backend local durante a validação para evitar
+  expurgo dos dados existentes.

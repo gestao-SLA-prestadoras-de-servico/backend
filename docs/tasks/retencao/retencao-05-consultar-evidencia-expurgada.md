@@ -29,6 +29,16 @@ O gestor precisa consultar a prova de que uma evidência existiu depois da retir
 
 Listagens de cliente e técnico passam a conter apenas evidências com estado diferente de `EXPURGADA`.
 
+No frontend, o detalhe do chamado oferece **Consultar metadados** em itens
+expurgados. A tela usa o identificador da rota para consultar o backend e
+apresenta o hash e as datas retornadas pela API.
+
+Em um realm de desenvolvimento já importado, confira no cliente `flowsla-frontend`
+os retornos de login e logout e a origem web. Para o frontend servido em
+`http://localhost:4200`, use `http://localhost:4200/*` nos retornos e
+`http://localhost:4200` na origem web. Atualizar o arquivo de importação não
+altera o realm que já está no banco.
+
 ## Como verificar
 
 Consulte o [registro dos testes](../../testes/retencao/retencao-05-consultar-evidencia-expurgada.md).
