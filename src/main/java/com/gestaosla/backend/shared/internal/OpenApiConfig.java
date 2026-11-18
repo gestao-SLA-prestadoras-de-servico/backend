@@ -78,6 +78,10 @@ class OpenApiConfig {
                                 "Já existe uma conta com este username ou e-mail.", null))
                         .addResponses(RespostasErro.REGRA_NEGOCIO, erro("Regra de negócio violada (ver catálogo)", 422, "TRANSICAO_INVALIDA",
                                 "Chamado ENCERRADO não aceita transição.", null))
+                        .addResponses(RespostasErro.EVIDENCIA_EXPURGADA, erro("Evidência expurgada: o arquivo não existe mais (RN-81)", 410,
+                                "EVIDENCIA_EXPURGADA", "A evidência foi expurgada.", null))
+                        .addResponses(RespostasErro.ARQUIVO_MUITO_GRANDE, erro("Arquivo acima de 10 MB (RN-75)", 413,
+                                "ARQUIVO_MUITO_GRANDE", "Maximum upload size exceeded", null))
                         .addResponses(RespostasErro.SERVICO_INDISPONIVEL, erro("Serviço externo fora do ar ou lento (RN-137)", 503,
                                 "SERVICO_INDISPONIVEL", "Serviço temporariamente indisponível. Tente novamente em instantes.", null))
                         .addResponses(ERRO_INTERNO, erro("Erro inesperado", 500, "ERRO_INTERNO",

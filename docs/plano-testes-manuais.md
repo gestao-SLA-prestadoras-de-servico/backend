@@ -260,7 +260,7 @@ values (gen_random_uuid(), '<ID>', 'ATRIBUICAO', 'notificacoes', 'interna', '{"e
 | 7C.1 | Inserir o evento e esperar 5 s | `publicado_em` preenchido; `notificacoes.interna` com 1 mensagem, `message_id` = `<ID>` |
 | 7C.2 | `docker compose ... stop rabbitmq`, inserir outro evento (routing key `email`) e esperar 10 s | `publicado_em` nulo, `tentativas` ≥ 1, `ultimo_erro` preenchido |
 | 7C.3 | `docker compose ... start rabbitmq` e esperar | O evento é publicado; `notificacoes.email` com 1 mensagem |
-| 7C.4 | Inserir um evento com routing key `inexistente` | Fica pendente com `ultimo_erro` "Sem fila de destino"; os eventos criados depois dele também ficam pendentes. Apague-o (`delete from outbox_eventos where evento_id = '<ID>'`) para o publicador seguir |
+| 7C.4 | Inserir um evento com routing key `inexistente` e, depois, um com routing key `interna` ([outbox - 05]) | O primeiro fica pendente com `ultimo_erro` "Sem fila de destino" e `tentativas` crescendo a cada ciclo; o `interna` é publicado mesmo assim. Apague o primeiro (`delete from outbox_eventos where evento_id = '<ID>'`) |
 | 7C.5 | Esvaziar as filas usadas (como no 7B.5) | Filas vazias |
 
 As métricas `outbox_*` estão em `/actuator/prometheus`, que hoje exige token.
@@ -316,6 +316,78 @@ Usa CH atribuído a UT2 (7E.7), um segundo gestor (**UG**, do 5) e um chamado no
 | 7F.8 | Como gestor: `POST /api/chamados/{CH2}/cancelamento` com `{"motivo": "Aberto por engano"}` | 200; `estado: CANCELADO`, `estadoFinalEm` preenchido; `GET /api/chamados/{CH2}/sla` → `apurado: false` |
 | 7F.9 | Repetir o 7F.8 | 422 `CANCELAMENTO_NAO_PERMITIDO` |
 
+## 7G. Enviar evidência ([evidência - 02])
+
+Usa CH em EM_ATENDIMENTO com o atendimento EM_ANDAMENTO de **UT2** (7F.5) e o token de UT2 em `T2`. Antes, crie as imagens (Python com Pillow; a primeira é uma foto "de celular": 400x200, metade vermelha e metade azul, orientação 6 e GPS no EXIF):
+
+```bash
+python3 -c "
+from PIL import Image
+im=Image.new('RGB',(400,200),'red'); im.paste('blue',(200,0,400,200))
+e=im.getexif(); e[0x0112]=6
+g=e.get_ifd(0x8825); g[1]='S'; g[2]=(3.0,43.0,56.0); g[3]='W'; g[4]=(38.0,31.0,38.0)
+im.save('foto-celular.jpg', exif=e)"
+printf '%%PDF-1.7\n1 0 obj\n<< >>\nendobj\n' > falso.jpg      # PDF disfarçado de JPEG
+head -c 11000000 /dev/zero > grande.jpg                          # 11 MB
+```
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7G.1 | Como **UT2**: `curl -i -X POST http://localhost:8080/api/chamados/{CH}/evidencias -H "Authorization: Bearer $T2" -F "arquivo=@foto-celular.jpg;type=image/jpeg"` | 202 `{"id": "...", "estado": "RECEBIDA"}`. Anote o `id` (**EV**) |
+| 7G.2 | No psql: `select estado, tipo_conteudo, tamanho, hash_sha256, chave_original from evidencia where id = '{EV}';` | `RECEBIDA`, `image/jpeg`, hash de 64 caracteres, chave `evidencias/{CH}/{EV}/original.jpg` |
+| 7G.3 | No console do MinIO (http://localhost:9001, `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` do `.env.dev`), bucket `evidencias`: baixe o objeto e rode `python3 -c "from PIL import Image; i=Image.open('original.jpg'); print(i.size, i.getexif())"`; confira o hash com `sha256sum original.jpg` | Tamanho `(200, 400)` (em pé), EXIF vazio (`{}`), `sha256sum` igual ao `hash_sha256` do 7G.2; a metade vermelha no topo e a azul embaixo |
+| 7G.4 | No psql: `select operacao, entidade_tipo, dados from auditoria where entidade_id = '{EV}';` e `select exchange, routing_key, payload from outbox_eventos where payload->>'evidenciaId' = '{EV}';` | Auditoria `ENVIO_EVIDENCIA`/`EVIDENCIA` com tipo, tamanho e hash (sem o nome do arquivo); evento na exchange `evidencias`, routing key `processamento`, payload só com `evidenciaId`, `chamadoId`, `chaveOriginal` e `eventoId` |
+| 7G.5 | Repetir o 7G.1 com `-F "arquivo=@falso.jpg;type=image/jpeg"` | 422 `FORMATO_NAO_SUPORTADO` |
+| 7G.6 | Repetir o 7G.1 com `-F "arquivo=@grande.jpg;type=image/jpeg"` | 413 `ARQUIVO_MUITO_GRANDE` |
+| 7G.7 | Como **UT** (não atribuído): repetir o 7G.1 | 404 |
+| 7G.8 | Como gestor: repetir o 7G.1 | 403 |
+| 7G.9 | Como gestor: `GET /api/chamados/{CH}` | O atendimento EM_ANDAMENTO traz `evidencias: 1` |
+| 7G.10 | Num chamado ATRIBUIDO (ainda sem início do atendimento), como o técnico dele: repetir o 7G.1 | 422 `TRANSICAO_INVALIDA` |
+
+## 7H. Processamento das evidências ([evidência - 03])
+
+Segue o 7G.1 (evidência **EV** enviada; use uma foto grande, por exemplo 4000x3000) com a aplicação e o broker no ar. O publicador roda a cada 5 s.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7H.1 | Em até ~10 s: `select estado, chave_miniatura, chave_visualizacao from evidencia where id = '{EV}';` | `DISPONIVEL` e as chaves `.../miniatura.jpg` e `.../visualizacao.jpg` |
+| 7H.2 | No console do MinIO, bucket `evidencias`, pasta de EV: baixe os dois derivados e rode `python3 -c "from PIL import Image; print(Image.open('miniatura.jpg').size, Image.open('visualizacao.jpg').size)"` | Lado maior 320 e 1280, mesma proporção; o `original.jpg` com o mesmo `sha256sum` de antes |
+| 7H.3 | No console do RabbitMQ (http://localhost:15672), fila `evidencias.processamento` | Vazia (0 ready, 0 unacked) |
+| 7H.4 | `curl -s -H "Authorization: Bearer $TG" http://localhost:8080/actuator/prometheus \| grep '^evidencias'` (token de gestor) | Uma linha por estado, `DISPONIVEL` com a contagem certa |
+| 7H.5 | Falha: envie outra foto (**EV2**, 202) e, **logo em seguida**, antes de o publicador rodar, pare o MinIO (`docker stop infra-minio-1`); espere ~25 s, veja o log da aplicação e `select estado from evidencia where id = '{EV2}'`. (Parar o MinIO **antes** de enviar dá 503 `SERVICO_INDISPONIVEL` no envio, e nada chega ao processamento.) | 3 tentativas no log (1 s e 2 s de espera), depois `FALHA`; no console do RabbitMQ a `evidencias.processamento.dlq` tem 1 mensagem a mais (as estatísticas atualizam com alguns segundos de atraso) e a principal está vazia. Religue o MinIO (`docker start infra-minio-1`) e espere uns 10 s: a JVM guarda por esse tempo a falha de DNS de `minio` e responde 503 enquanto isso |
+| 7H.6 | `select estado from chamado where id = '{CH}'` e o atendimento | Inalterados pela falha (RN-89) |
+
+## 7I. Listar e baixar evidências ([evidência - 04])
+
+Segue o 7H: EV (DISPONIVEL) no chamado CH, `TG` (gestor), `T2` (UT2, técnico atribuído), `TC` (cliente da empresa do chamado) e `TC2` (cliente de outra empresa). `U=http://localhost:8080`.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7I.1 | `curl -s -H "Authorization: Bearer $TG" $U/api/chamados/{CH}/evidencias` (repetir com `$T2` e `$TC`) | 200; lista por atendimento com `atendimentoId` e `evidencias[]` (id, nome, tipoConteudo, tamanho, hashSha256, estado `DISPONIVEL`, enviadaEm, expurgadaEm nulo) |
+| 7I.2 | Repetir o 7I.1 com `$TC2` e com o token de um técnico não atribuído | 404 |
+| 7I.3 | `curl -s -D - -o visualizacao.jpg -H "Authorization: Bearer $TG" $U/api/evidencias/{EV}/conteudo` | 200; `Content-Type: image/jpeg`, `Content-Length`, `ETag: "{hash}-visualizacao"`, `Cache-Control: private, no-cache`, `Content-Disposition: inline`, `X-Content-Type-Options: nosniff`; lado maior 1280 |
+| 7I.4 | Repetir com `?variante=miniatura` (`-o miniatura.jpg`) e `?variante=original` (`-o original.jpg`) | Lado maior 320; o original com `sha256sum` igual ao `hashSha256` da lista |
+| 7I.5 | Repetir o 7I.3 com `-H 'If-None-Match: "{hash}-visualizacao"'` | 304, sem corpo |
+| 7I.6 | Repetir com `?variante=gigante` | 400 `VALIDACAO` |
+| 7I.7 | Evidência ainda `RECEBIDA` (envie outra e baixe antes do publicador rodar, ou use a de falha do 7H.5): `curl -D - -o x.jpg ... /conteudo` | 200 com o original (`ETag` terminando em `-original`) |
+| 7I.8 | Com `$TC2`: `curl -i $U/api/evidencias/{EV}/conteudo` | 404 |
+| 7I.9 | `update evidencia set estado = 'EXPURGADA', expurgada_em = now() where id = '{EV}';` e repetir o 7I.3 | 410 `EVIDENCIA_EXPURGADA`; a listagem (7I.1) ainda mostra a evidência com `expurgadaEm`. Desfaça o `update` se for usar EV de novo |
+| 7I.10 | `curl -i -X DELETE -H "Authorization: Bearer $TG" $U/api/evidencias/{EV}` | 404 (não existe exclusão) |
+
+## 7J. Reprocessar evidência ([evidência - 05])
+
+Usa a evidência **EV2** em `FALHA` do 7H.5 (MinIO já religado).
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7J.1 | Como técnico ou cliente: `curl -i -X POST $U/api/evidencias/{EV2}/reprocessamento -H "Authorization: Bearer $T2"` | 403 |
+| 7J.2 | Como gestor: mesmo `POST` com `$TG` | 202 `{"id": "{EV2}", "estado": "RECEBIDA"}` |
+| 7J.3 | `select operacao, dados from auditoria where entidade_id = '{EV2}' and operacao = 'REPROCESSAMENTO';` e `select evento_id from outbox_eventos where payload->>'evidenciaId' = '{EV2}';` | Auditoria com `{"de": "FALHA", "para": "RECEBIDA"}`; dois eventos, com `evento_id` diferentes |
+| 7J.4 | Em até ~10 s: `select estado from evidencia where id = '{EV2}';` | `DISPONIVEL` |
+| 7J.5 | Repetir o 7J.2 | 422 `REPROCESSAMENTO_NAO_PERMITIDO` (já não está em `FALHA`) |
+| 7J.6 | `POST` com um id inexistente | 404 |
+| 7J.7 | No console do RabbitMQ, mova a mensagem antiga da `evidencias.processamento.dlq` de volta à fila (shovel/move) | Descartada com ack; a evidência segue `DISPONIVEL` e nada é regravado no MinIO |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |
@@ -331,5 +403,6 @@ Se `make` reclamar de permissão no `target/` (parte dele é do root, criada pel
 - **Compensação** (conta removida quando o banco falha) e **e-mail que falha depois do commit:** precisam de falha simulada; estão nos testes automáticos (`CadastroUsuarioTest`).
 - **Timeout e retry da Admin API do Keycloak:** precisam de um Keycloak lento; estão no `KeycloakAdminAdapterTest`.
 - **Swagger desligado** em test/prod: `OpenApiDesligadoTest`.
+- **Falha no banco depois da gravação no storage (objeto órfão), teto de megapixels e as oito orientações do EXIF ([evidência - 02]):** precisam de falha simulada ou de imagens montadas à mão; estão no `RecepcaoEvidenciaTest` e no `SanitizadorImagemTest`.
 - **SLA ([sla - 01] a [sla - 05]):** a abertura e a prioridade já acionam os relógios (seção 7D); a reabertura e a apuração ainda não têm operação que as acione e estão nos testes automáticos (`RelogiosSlaTest`, `ApuracaoSlaTest`, `ConsultaChamadoTest`).
 - **Transições, histórico de estado e atendimentos ([chamado - 01] e [chamado - 02]):** a atribuição, o início do atendimento e o cancelamento já mudam o estado (seções 7E e 7F); a resolução, a reabertura e o encerramento ainda não existem; estão no `ChamadoModeloTest` e no `AtendimentoChamadoTest`. Na seção 7D o estado é alterado por SQL só para exercitar as consultas.

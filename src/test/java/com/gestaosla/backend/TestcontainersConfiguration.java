@@ -20,4 +20,14 @@ public class TestcontainersConfiguration {
     DynamicPropertyRegistrar jwkSetUri() {
         return registro -> registro.add("spring.security.oauth2.resourceserver.jwt.jwk-set-uri", () -> TokenTeste.JWK_SET_URI);
     }
+
+    // Todo contexto tem storage válido: o bucket é criado na subida.
+    @Bean
+    DynamicPropertyRegistrar minio() {
+        return registro -> {
+            registro.add("app.armazenamento.endpoint", MinioTeste.CONTAINER::getS3URL);
+            registro.add("app.armazenamento.access-key", () -> MinioTeste.USUARIO);
+            registro.add("app.armazenamento.secret-key", () -> MinioTeste.SENHA);
+        };
+    }
 }

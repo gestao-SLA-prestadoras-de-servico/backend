@@ -21,6 +21,12 @@ public enum CodigoErro {
     CODIGO_CONTRATO_JA_EXISTE,  // cadastro-02: código de contrato é único no sistema
     NOME_POLITICA_JA_EXISTE,    // cadastro-03: nome de política de SLA é único
 
+    // Download de evidência (410)
+    EVIDENCIA_EXPURGADA,        // RN-81, RN-104: o objeto foi expurgado; só os metadados restam
+
+    // Recepção de evidência (413)
+    ARQUIVO_MUITO_GRANDE,       // RN-75: arquivo acima de 10 MB; lançado pelo limite de multipart
+
     // Regras de negócio: lançados via RegraNegocioException (422)
     TRANSICAO_INVALIDA,         // RN-11, RN-13
     POSICIONAMENTO_JA_REGISTRADO, // chamado-06: o primeiro posicionamento só é registrado uma vez (RN-23)
@@ -39,5 +45,9 @@ public enum CodigoErro {
     SUBSTITUTO_OBRIGATORIO,     // RN-133: técnico com chamados não finalizados exige substituto
     SUBSTITUTO_INVALIDO,        // RN-133: substituto inexistente, inativo, não técnico ou o próprio inativado
     AUTOINATIVACAO_NAO_PERMITIDA, // autenticação-06: gestor não inativa a si mesmo
-    ULTIMO_GESTOR_ATIVO         // autenticação-06: o sistema não pode ficar sem gestor ativo
+    ULTIMO_GESTOR_ATIVO,        // autenticação-06: o sistema não pode ficar sem gestor ativo
+    FORMATO_NAO_SUPORTADO,      // RN-75: os bytes não são JPEG, PNG nem WebP (a extensão e o Content-Type não contam)
+    IMAGEM_MUITO_GRANDE,        // RN-75: dimensões do cabeçalho acima do teto de megapixels
+    IMAGEM_INVALIDA,            // RN-75: assinatura válida, mas a imagem está corrompida
+    REPROCESSAMENTO_NAO_PERMITIDO // RN-121: só a evidência em FALHA é reprocessada (evidencia-05)
 }
