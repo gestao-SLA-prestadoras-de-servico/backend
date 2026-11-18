@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.gestaosla.backend.auditoria.api.ExpurgoAuditoria;
 import com.gestaosla.backend.outbox.api.LimpezaOutbox;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -25,12 +26,14 @@ class RotinaRetencao {
 
     private final Clock relogio;
     private final LimpezaOutbox outbox;
+    private final ExpurgoAuditoria auditoria;
     private final MeterRegistry metricas;
 
     @Scheduled(cron = "${app.retencao.cron:0 0 2 * * *}", zone = "${app.fuso-horario}")
     void executar() {
         Instant agora = relogio.instant();
         executarPasso("outbox", () -> outbox.removerLote(agora.minus(7, ChronoUnit.DAYS), TAMANHO_LOTE));
+        executarPasso("auditoria", () -> auditoria.removerLote(agora, TAMANHO_LOTE));
     }
 
     void executarPasso(String passo, IntSupplier removerLote) {

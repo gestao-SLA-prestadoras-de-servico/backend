@@ -183,7 +183,9 @@ A rotina roda diariamente às 02:00 em `FUSO_HORARIO`. A propriedade Spring
 `--app.retencao.cron="0 0 3 * * *"`. O valor `-` desativa o agendamento.
 Cada passo trabalha em lotes de 100 e registra itens removidos, falhas e duração
 nas métricas `retencao.itens`, `retencao.falhas` e `retencao.duracao`, com a tag `passo`.
-O primeiro passo remove da outbox eventos publicados há mais de sete dias.
+A rotina remove da outbox eventos publicados há mais de sete dias e da auditoria
+registros com mais de cinco anos de calendário. O trigger da auditoria continua
+validando cada exclusão.
 
 ## Erros da API
 
