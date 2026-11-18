@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import com.gestaosla.backend.auditoria.api.ExpurgoAuditoria;
 import com.gestaosla.backend.evidencia.api.ExpurgoEvidencias;
+import com.gestaosla.backend.evidencia.api.LimpezaOrfaos;
 import com.gestaosla.backend.outbox.api.LimpezaOutbox;
 
 import io.micrometer.core.instrument.MeterRegistry;
@@ -32,6 +33,7 @@ class RotinaRetencao {
     private final LimpezaOutbox outbox;
     private final ExpurgoAuditoria auditoria;
     private final ExpurgoEvidencias evidencias;
+    private final LimpezaOrfaos orfaos;
     private final MeterRegistry metricas;
 
     @Scheduled(cron = "${app.retencao.cron:0 0 2 * * *}", zone = "${app.fuso-horario}")
@@ -40,6 +42,7 @@ class RotinaRetencao {
         executarPasso("outbox", () -> outbox.removerLote(agora.minus(7, ChronoUnit.DAYS), TAMANHO_LOTE));
         executarPasso("auditoria", () -> auditoria.removerLote(agora, TAMANHO_LOTE));
         executarPasso("evidencias", contar -> evidencias.executar(agora, TAMANHO_LOTE, contar));
+        executarPasso("orfaos", contar -> orfaos.executar(agora, TAMANHO_LOTE, contar));
     }
 
     void executarPasso(String passo, IntSupplier removerLote) {

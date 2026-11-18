@@ -195,6 +195,9 @@ com seus metadados e a data do expurgo.
 A geração de derivados e o expurgo usam a mesma trava de linha no PostgreSQL
 durante o acesso ao MinIO. Assim, o processamento de uma mensagem atrasada
 respeita o estado `EXPURGADA`.
+O passo de órfãos percorre o bucket `evidencias` em páginas. Objetos sem
+vínculo ou sem chave registrada são removidos após 24 horas. O passo preserva
+os objetos de evidências `RECEBIDA` ou `PROCESSANDO`.
 
 ## Storage das evidências (MinIO)
 

@@ -399,6 +399,7 @@ para iniciar um ciclo no horário de teste e acompanhe o log da etapa `outbox`.
 | 7K.2 | Confira o log e as métricas da etapa `outbox`. | O log e `retencao.itens` mostram um item removido. `retencao.duracao` registra a execução. |
 | 7K.3 | Prepare um registro de auditoria com cinco anos e um dia e outro a um dia de completar cinco anos. Aguarde o ciclo. | O registro vencido é removido, o mais recente permanece e a etapa `auditoria` conta uma remoção. |
 | 7K.4 | Prepare uma evidência com original e derivados em chamado cancelado há 181 dias e outra em chamado resolvido há um ano. Aguarde o ciclo. | O prefixo da primeira fica vazio no MinIO. A consulta mantém os metadados e o conteúdo responde 410. A auditoria registra `EXPIRACAO_RETENCAO`. A segunda permanece disponível. |
+| 7K.5 | Em bucket descartável, prepare órfãos com 25 e 23 horas e um objeto antigo no prefixo de uma evidência em processamento. Aguarde o ciclo. | Só o órfão de 25 horas é removido. A etapa `orfaos` conta a remoção. |
 
 ## 8. Desfecho
 
