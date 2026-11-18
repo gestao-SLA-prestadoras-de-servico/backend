@@ -7,12 +7,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -40,6 +42,16 @@ class SegurancaConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Cabeçalhos de segurança gravados antes do controller: com StreamingResponseBody (download de evidência)
+                // a resposta é escrita por outra thread enquanto esta ainda volta pelos filtros, e gravá-los depois
+                // disputaria a mesma resposta (ConcurrentModificationException, cabeçalho perdido).
+                .headers(h -> h.addObjectPostProcessor(new ObjectPostProcessor<HeaderWriterFilter>() {
+                    @Override
+                    public <O extends HeaderWriterFilter> O postProcess(O filtro) {
+                        filtro.setShouldWriteHeadersEagerly(true);
+                        return filtro;
+                    }
+                }))
                 .authorizeHttpRequests(rotas -> {
                     rotas.requestMatchers("/actuator/health/**").permitAll();
                     // Só existem com API_DOCS_ENABLED=true (dev); desligados, dão 404.

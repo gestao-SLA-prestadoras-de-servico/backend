@@ -45,6 +45,14 @@ O histórico do chamado (`chamado_historico`) também: `@Immutable`, `ocorrido_e
 
 A preferência de notificação (`preferencia_notificacao`) também não tem `updated_at`: a linha é só criada e removida (desativar apaga), e a trilha das mudanças fica na auditoria.
 
+### Imutabilidade de colunas, não da linha
+
+Quando só alguns campos não podem mudar e o resto da linha evolui, a trigger rejeita o `UPDATE` que altera esses campos, em vez de rejeitar todo `UPDATE`. É o caso do `hash_sha256` e da `chave_original` da `evidencia` (RN-77), em `V15__cria_evidencia.sql`; a entidade também marca as colunas como `updatable = false`.
+
+### Entidade com id atribuído antes de gravar
+
+A `evidencia` não estende a `EntidadeBase`: o id (UUID v7) é gerado no serviço, antes da transação, porque compõe a chave do objeto no storage. Mantém `created_at` e `updated_at` e declara `@Version` como `Long` (wrapper): nulo significa "nova" para o `save()`, que então faz `persist` sem `select`.
+
 ### Leitura da tabela de outro módulo
 
 O `Chamado` lê `relogio_sla` por `@Formula` (`comViolacao` e `proximoVencimento`), só para filtrar e ordenar a listagem no banco com paginação. É leitura; quem grava a tabela continua sendo só o sla. Renomear `relogio_sla` ou as colunas `chamado_id`, `ativo`, `vence_em`, `cumprido_em` e `violado_em` exige ajustar essas fórmulas.

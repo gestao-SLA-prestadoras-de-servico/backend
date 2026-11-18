@@ -30,7 +30,12 @@
 		<java.version>21</java.version>
 		<resilience4j.version>2.4.0</resilience4j.version>
 		<springdoc.version>3.2.0</springdoc.version>
+		<!-- Fora do BOM do Boot: BOM do AWS SDK v2 (cliente S3 do MinIO, evidencia-01). -->
+		<awssdk.version>2.59.1</awssdk.version>
 		<victools.version>5.0.0</victools.version>
+		<!-- Fora do BOM do Boot: leitura de JPEG/WebP no ImageIO (TwelveMonkeys) e do EXIF (metadata-extractor), evidencia-02. -->
+		<twelvemonkeys.version>3.15.3</twelvemonkeys.version>
+		<metadata-extractor.version>2.22.0</metadata-extractor.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -89,6 +94,41 @@
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
 			<version>${springdoc.version}</version>
+		</dependency>
+		<!-- Object storage das evidências (evidencia-01): cliente S3 com HTTP leve (sem Netty/Apache). Versão no BOM da AWS. -->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>apache-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>url-connection-client</artifactId>
+		</dependency>
+		<!-- Sanitização das evidências (evidencia-02): decodifica JPEG/WebP no ImageIO e lê a orientação do EXIF. -->
+		<dependency>
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-jpeg</artifactId>
+			<version>${twelvemonkeys.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-webp</artifactId>
+			<version>${twelvemonkeys.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.drewnoakes</groupId>
+			<artifactId>metadata-extractor</artifactId>
+			<version>${metadata-extractor.version}</version>
 		</dependency>
 		<!-- AOP exigido pelas anotações @Retry do Resilience4j -->
 		<dependency>
@@ -160,6 +200,12 @@
 		</dependency>
 		<dependency>
 				<groupId>org.testcontainers</groupId>
+				<artifactId>testcontainers-minio</artifactId>
+				<version>2.0.5</version>
+				<scope>test</scope>
+		</dependency>
+		<dependency>
+				<groupId>org.testcontainers</groupId>
 				<artifactId>testcontainers-junit-jupiter</artifactId>
 				<version>2.0.5</version>
 				<scope>test</scope>
@@ -194,6 +240,13 @@
 
 	<dependencyManagement>
 		<dependencies>
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${awssdk.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
 			<dependency>
 				<groupId>org.springframework.modulith</groupId>
 				<artifactId>spring-modulith-bom</artifactId>

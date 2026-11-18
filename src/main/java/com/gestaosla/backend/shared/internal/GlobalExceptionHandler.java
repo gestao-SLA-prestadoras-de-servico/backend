@@ -113,6 +113,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return switch (status.value()) {
             case 400 -> CodigoErro.VALIDACAO;
             case 404 -> CodigoErro.RECURSO_NAO_ENCONTRADO;
+            case 410 -> CodigoErro.EVIDENCIA_EXPURGADA; // ResponseStatusException do download: único 410 da API
+            case 413 -> CodigoErro.ARQUIVO_MUITO_GRANDE; // MaxUploadSizeExceededException: único 413 da API
             case 503 -> CodigoErro.SERVICO_INDISPONIVEL;
             default -> status.is5xxServerError() ? CodigoErro.ERRO_INTERNO : CodigoErro.REQUISICAO_INVALIDA;
         };

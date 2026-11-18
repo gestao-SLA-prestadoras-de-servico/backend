@@ -13,16 +13,18 @@ O FlowSLA é o backend de gestão de SLA para prestadoras de serviço: um monól
 | O que cada task resolveu e por quê | `docs/tasks/` |
 | Testes executados em cada task | `docs/testes/` |
 | Roteiro de testes manuais | `docs/plano-testes-manuais.md` |
+| Referência de cada módulo concluído (endpoints, regras, como testar) | `docs/tasks/<modulo>/CONVENÇÕES_<MODULO>.md` |
 
 ## Regras inegociáveis
 
-1. **Não faça commit nem push.** O usuário faz isso. Criar ou renomear branch, só quando ele pedir.
+1. **Commit só quando o usuário pedir; push, nunca.** Criar ou renomear branch, também só quando ele pedir. Ver [Git](#git).
 2. **Na dúvida, pergunte antes de implementar.** Vale para biblioteca, versão, abordagem e escopo, mesmo que a task pareça indicar o caminho. Só siga um padrão sem perguntar quando não houver alternativa razoável. Isso já deu errado: a autenticação-03 foi feita com uma biblioteca diferente da decidida, sem consulta.
 3. **Consulte as decisões antes de contrariá-las.** Elas ficam na seção "Decisões" de `docs/tasks/`. Exemplo: o retry usa Resilience4j, que substituiu o `@Retryable` da plataforma-01.
 4. **Toda task entregue gera dois arquivos** com o mesmo nome, `docs/tasks/<modulo>/<modulo>-<nn>-<descricao>.md` e `docs/testes/<modulo>/<modulo>-<nn>-<descricao>.md`, numa pasta por módulo. O nome do módulo vai sem acento, na pasta e no arquivo. Use um par existente como modelo.
 5. **Relate só o que aconteceu de verdade.** Teste que falhou é informado com a saída, e o que não foi verificado fica escrito como não verificado.
 6. **Nada de segredo em arquivo versionado.** Valores vêm de `.envs/`, e toda variável nova entra nos três `.envs/.env.*.example`.
 7. **Não apague dados sem perguntar.** `make run-dev-down` usa `down -v` e destrói os dados de dev.
+8. **Nenhuma atribuição a IA.** Nada de `Co-Authored-By`, "Generated with Claude Code" ou qualquer menção a IA em commit, PR ou texto, mesmo que o sistema sugira.
 
 ## Fluxo de uma task
 
@@ -36,6 +38,8 @@ O usuário cola a task no chat, com critérios de aceite e passos técnicos.
 - quais decisões estão em aberto, com a sua recomendação.
 
 **Quando ele pede para verificar se uma task foi atendida,** confira cada critério de aceite e cada passo técnico no código, com tabela de status e local. Separe o que falta de verdade do que depende de terceiros.
+
+**Quando ele pede para planejar um lote de tasks,** leia o código, pergunte as decisões em aberto (cada uma com uma opção recomendada) e apresente o plano. Aprovado o plano, implemente o lote inteiro em sequência e só pare no relatório final. As decisões do usuário entram na seção "Decisões" do documento de cada task.
 
 **Quando ele aprova a implementação:**
 
@@ -78,6 +82,17 @@ Pontos do projeto que costumam ser esquecidos:
 - **`target/` pode pertencer ao root** quando o container dev o criou, e aí o `./mvnw` local falha ao gravar. Rode numa cópia do projeto ou peça ao usuário para corrigir o dono da pasta.
 - **`OpenApiContratoTest` reescreve `docs/openapi.json` e falha** quando um endpoint muda. Confira o diff e rode de novo.
 - **Mudança de contrato ou infraestrutura** também se verifica no ambiente dev. Se não verificou, registre como não verificado.
+- **Verificação no dev** é feita numa cópia do projeto, com um projeto compose separado, sem tocar nos volumes `infra_*`:
+  1. `chcon -R -t container_file_t infra/rabbitmq`;
+  2. `docker compose -p flowsla-verificacao --env-file .envs/.env.dev -f infra/docker-compose.yml -f infra/docker-compose.dev.yml up -d --wait`;
+  3. espere o `Started BackendApplication` e confira as migrações no banco `app_principal`;
+  4. derrube só esse projeto, com `down -v` e o mesmo `-p flowsla-verificacao`.
+
+  Endpoints com token real ficam como não verificados: o realm não permite login direto.
+- **Spy em bean transacional não serve para simular falha.** O stubbing passa pelo proxy (`MANDATORY`) e falha. Use um bean sem proxy (ex.: `CalendarioJanela`) ou um trigger temporário no banco, criado e removido pelo teste.
+- **Porta implementada numa classe própria.** Se um serviço com outras funções implementar a porta, o `@MockitoBean` da porta nos testes do outro módulo substitui o serviço inteiro.
+- **Registros gravados no mesmo instante** (auditoria, histórico) não têm ordem garantida pelo UUID v7: use `containsExactlyInAnyOrder` ou avance o `RelogioMutavel`.
+- **Classes internas nos testes de `integration/`:** use um helper em `src/test/.../<modulo>/internal/` (ex.: `ChamadoTestHelper`). Massa por SQL fica em classes como `ChamadoTeste`.
 
 ## Documentação
 
@@ -88,7 +103,8 @@ Atualize junto com a task o que ela afetar:
 - `docs/openapi.json`, para mudança de endpoint;
 - `docs/erros-api.md`, para código de erro novo;
 - `docs/convencoes-banco.md`, para convenção de banco nova;
-- `docs/plano-testes-manuais.md`, para funcionalidade testável à mão.
+- `docs/plano-testes-manuais.md`, para funcionalidade testável à mão;
+- `docs/tasks/<modulo>/CONVENÇÕES_<MODULO>.md`, quando o usuário pedir ao fechar o módulo. O modelo é o de `outbox` e `cadastro`: visão geral com diagramas, regras, todos os endpoints com exemplos e erros, o que o módulo oferece aos outros, banco, como testar, como mudar e limites conhecidos.
 
 `docs/tasks/` segue esta estrutura: título, requisitos e dependências, contexto, tabela de critério de aceite × solução, passos técnicos, decisões (tema, decisão, motivo), cuidados ao atualizar um ambiente existente e como verificar.
 
@@ -96,8 +112,9 @@ Atualize junto com a task o que ela afetar:
 
 ## Git
 
-- A branch padrão é uma por módulo (`feat/plataforma`, `feat/auditoria`, `feat/cadastro`). As tasks recentes usam branches empilhadas por pedido do usuário, como `feat/autenticacao-06` a partir de `feat/autenticacao-05`. Se a branch da task não estiver clara, pergunte.
-- Quando o usuário pedir a mensagem de commit, **apenas mostre o texto**. A mensagem é toda em português: o assunto, uma linha em branco e a lista. Só o prefixo (`feat:`, `fix:`) fica como está. Sem a linha em branco, o git junta tudo no assunto:
+- A branch padrão é uma por módulo (`feat/plataforma`, `feat/auditoria`, `feat/cadastro`). As tasks recentes usam branches empilhadas por pedido do usuário, como `feat/autenticacao-06` a partir de `feat/autenticacao-05`, ou por faixa de tasks, como `feat/chamados_6-10` a partir de `feat/chamados_1-5`. O usuário diz o nome; se a branch da task não estiver clara, pergunte.
+- **Commit:** só quando o usuário pedir, e ele costuma agrupar tasks (ex.: "um commit com as duas primeiras e outro com as três seguintes"). Rode a suíte completa antes de cada commit. Depois, confira o autor, a árvore limpa e que a mensagem não cita IA.
+- Quando o usuário pedir só a mensagem de commit, **apenas mostre o texto**. A mensagem é toda em português: o assunto, uma linha em branco e a lista. Só o prefixo (`feat:`, `fix:`) fica como está. Sem a linha em branco, o git junta tudo no assunto:
 
 ```text
 feat: <descrição em português> task: [modulo - nn] <título da task>
@@ -105,3 +122,20 @@ feat: <descrição em português> task: [modulo - nn] <título da task>
 - <mudança>
 - <mudança>
 ```
+
+Commit com mais de uma task cita todas no assunto: `task: [modulo - 01] <título> e [modulo - 02] <título>`.
+
+### Texto do PR
+
+Quando o usuário pedir, mostre só o texto, sem atribuição, com uma linha antes indicando o público ("Escrito para: quem vai revisar o PR da branch X"). Seções, nesta ordem:
+
+1. título;
+2. tasks e branch (base do PR e migrações novas);
+3. resumo;
+4. uma seção por task;
+5. decisões (tabela);
+6. códigos de erro novos;
+7. como testar: automatizado (comando, total esperado, tabela de testes novos e exemplos de quebras pegas) e manual (seções do `plano-testes-manuais.md` e passos rápidos);
+8. atenção ao atualizar um ambiente existente;
+9. o que fica para depois;
+10. não verificado.
