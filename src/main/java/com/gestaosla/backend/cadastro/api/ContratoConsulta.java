@@ -21,4 +21,14 @@ public interface ContratoConsulta {
      * @throws com.gestaosla.backend.shared.api.RecursoNaoEncontradoException versão inexistente
      */
     PoliticaDoContrato versaoDaPolitica(UUID versaoId);
+
+    /**
+     * Confere se o cliente pode abrir chamado sob o contrato hoje e devolve a versão vigente da política, que o chamado
+     * guarda (RN-05). Contrato de outra empresa responde como inexistente (RN-126).
+     *
+     * @throws com.gestaosla.backend.shared.api.RecursoNaoEncontradoException contrato inexistente ou de outra empresa
+     * @throws com.gestaosla.backend.shared.api.RegraNegocioException         {@code CONTRATO_FORA_VIGENCIA} (RN-01) ou
+     *                                                                        {@code CONTRATO_SEM_POLITICA} (RN-03)
+     */
+    PoliticaDoContrato politicaParaAbertura(UUID contratoId, UUID empresaClienteId);
 }

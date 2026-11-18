@@ -27,7 +27,7 @@ O `sla` é uma biblioteca interna do backend. Ele **não sabe o que é um chamad
 
 ```mermaid
 erDiagram
-    CHAMADO ||--|{ RELOGIO_SLA : "3 por ciclo (futuro: FK)"
+    CHAMADO ||--|{ RELOGIO_SLA : "3 por ciclo"
     CHAMADO ||--o| APURACAO_SLA : "3 linhas no encerramento"
     CLIENTE ||--o{ APURACAO_SLA : "para o relatório"
 
@@ -66,7 +66,7 @@ erDiagram
 ```mermaid
 sequenceDiagram
     autonumber
-    participant CH as chamado (futuro)
+    participant CH as chamado
     participant CAD as cadastro
     participant SLA as sla
     participant OB as outbox
@@ -180,9 +180,11 @@ Resultado de SLA congelado de um chamado (RF-37).
 | Quem | Vê |
 | --- | --- |
 | GESTOR | qualquer chamado |
-| CLIENTE | só se o `clienteId` da apuração for a empresa dele; senão 404 (RN-126) |
-| TECNICO | só se for o técnico responsável no encerramento; senão 404 |
-| Sem apuração (cancelado ou não encerrado) | gestor: 200 `{"apurado": false}`; cliente e técnico: 404 |
+| CLIENTE | só os chamados da própria empresa; senão 404 (RN-126) |
+| TECNICO | só os chamados atribuídos a ele agora; senão 404 |
+| Sem apuração (cancelado ou não encerrado) | quem pode ver o chamado: 200 `{"apurado": false}` |
+
+O acesso é o mesmo das demais consultas do chamado (`ConsultaChamadoService.buscarVisivel`, [chamado - 04]).
 
 Resposta 200 com apuração (horários em UTC; o exemplo é um chamado `NORMAL` aberto segunda, 09/11/2026, às 09:00 de Fortaleza):
 
@@ -215,7 +217,7 @@ Resposta 200 sem apuração (só o gestor):
 | --- | --- |
 | 401 | sem token ou token inválido |
 | 403 `ACESSO_NEGADO` | papel fora dos três |
-| 404 `RECURSO_NAO_ENCONTRADO` | cliente de outra empresa, técnico que não é o responsável, ou cliente/técnico sem apuração |
+| 404 `RECURSO_NAO_ENCONTRADO` | chamado inexistente, de outra empresa ou não atribuído ao técnico |
 
 ## 4. O que o sla oferece aos outros módulos
 
@@ -257,7 +259,7 @@ Para o módulo chamado:
 | `V10__cria_relogio_sla.sql` | `relogio_sla`: UNIQUE `(chamado_id, tipo, ciclo)`, CHECK `violado_em = vence_em`, índice único parcial de um ativo por tipo e índice parcial `relogio_sla_correndo_idx` (ativos sem cumprimento e sem violação, por `vence_em`) |
 | `V11__cria_apuracao_sla.sql` | `apuracao_sla`: UNIQUE `(chamado_id, tipo)`, FK para `cliente`, CHECK de coerência do resultado, índices por cliente e por técnico e trigger de imutabilidade |
 
-- **Sem FK para `chamado`** nas duas tabelas: a tabela ainda não existe. A FK entra na migração que criar o chamado (`docs/convencoes-banco.md`).
+- **FK para `chamado`** nas duas tabelas, acrescentada pela `V12__cria_chamado.sql` ([chamado - 01]). Os testes do sla criam o chamado por SQL antes dos relógios (`ChamadoTeste`).
 - `relogio_sla` tem `@Version`; `apuracao_sla` não tem `updated_at` nem `version`, porque nunca muda.
 - Na reabertura há um `flush` antes de inserir o ciclo novo: sem ele o Hibernate faria os INSERTs antes dos UPDATEs e o índice único parcial rejeitaria o segundo ativo.
 
@@ -305,9 +307,7 @@ Sem o módulo chamado, nada aciona os relógios pela API. À mão dá para confe
 
 ## 8. Limites conhecidos
 
-- **O chamado ainda não existe:** nada chama o sla em produção. Relógios, recálculo, reabertura e apuração só rodam nos testes.
+- **Só a abertura e a prioridade acionam o sla:** cumprimento, reabertura e congelamento ainda não têm operação no chamado que os chame; rodam só nos testes.
 - **Sem a rotina de 15 minutos:** um relógio vencido só é violado quando alguém o toca (cumprimento, recálculo, reabertura ou congelamento).
-- **Acesso do endpoint pelos dados da apuração:** sem a entidade Chamado, cliente e técnico só enxergam chamados encerrados. Quando o chamado existir, a checagem passa a ser feita por ele.
-- **Sem FK para `chamado`** em `relogio_sla` e `apuracao_sla`.
 - **Sem feriados** (RN-63).
 - **Endpoint verificado por testes de integração, não no dev com token real**, pelo mesmo limite do cadastro. As migrações V10 e V11 foram verificadas num ambiente de dev subido a partir de uma cópia.

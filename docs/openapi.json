@@ -19,9 +19,301 @@
     "name" : "Cadastro"
   } ],
   "paths" : {
+    "/api/chamados" : {
+      "get" : {
+        "description" : "Gestor vê todos; cliente, os da própria empresa; técnico, os atribuídos a ele. `clienteId` e `tecnicoSub` só valem para o gestor. Ordenação: `numero` (padrão, decrescente) ou `proximoVencimento` (prazo de SLA correndo mais próximo).",
+        "operationId" : "listar_4",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "estado",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ABERTO", "ATRIBUIDO", "EM_ATENDIMENTO", "RESOLVIDO", "ENCERRADO", "CANCELADO" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "prioridade",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "comViolacao",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "clienteId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "tecnicoSub",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "description" : "Zero-based page index (0..N)",
+          "in" : "query",
+          "name" : "page",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 0,
+            "minimum" : 0
+          }
+        }, {
+          "description" : "The size of the page to be returned",
+          "in" : "query",
+          "name" : "size",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "default" : 20,
+            "minimum" : 1
+          }
+        }, {
+          "description" : "Sorting criteria in the format: property,(asc|desc). Default sort order is ascending. Multiple sort criteria are supported.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "array",
+            "default" : [ "numero,DESC" ],
+            "items" : {
+              "type" : "string"
+            }
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PagedModelChamadoView"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Listar chamados",
+        "tags" : [ "Chamados" ]
+      },
+      "post" : {
+        "description" : "Somente CLIENTE, sob contrato vigente da própria empresa. Os três prazos de SLA são calculados na mesma transação; a prioridade sugerida não muda nenhum prazo.",
+        "operationId" : "abrir",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DadosAbertura"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ChamadoView"
+                }
+              }
+            },
+            "description" : "Chamado aberto"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Abrir chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/contagem" : {
+      "get" : {
+        "description" : "Quantidade de chamados de cada estado, no que o usuário pode ver.",
+        "operationId" : "contagem",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "integer",
+                    "format" : "int64"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Contagem por estado",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}" : {
+      "get" : {
+        "description" : "Com os três relógios de SLA, os atendimentos e a contagem de evidências. O técnico não recebe dados de contrato nem de política.",
+        "operationId" : "detalhar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Detalhe do chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/historico" : {
+      "get" : {
+        "description" : "Linha do tempo filtrada pelo perfil; o gestor vê todos os eventos.",
+        "operationId" : "historico",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Histórico do chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/prioridade" : {
+      "put" : {
+        "description" : "Somente GESTOR, antes de RESOLVIDO. Recalcula os prazos que ainda correm; a mesma prioridade efetiva não altera nada.",
+        "operationId" : "alterarPrioridade",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NovaPrioridade"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Definir ou alterar a prioridade",
+        "tags" : [ "Chamados" ]
+      }
+    },
     "/api/chamados/{id}/sla" : {
       "get" : {
-        "description" : "Gestor vê qualquer chamado; cliente, só os da própria empresa; técnico, só os que encerrou como responsável. Chamado cancelado ou ainda não encerrado: `apurado: false`.",
+        "description" : "Para quem pode ver o chamado: gestor, todos; cliente, os da própria empresa; técnico, os atribuídos a ele. Chamado cancelado ou ainda não encerrado: `apurado: false`.",
         "operationId" : "consultar",
         "parameters" : [ {
           "in" : "path",
@@ -741,7 +1033,7 @@
     "/api/tecnicos" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100), para escolher o técnico na atribuição e na inativação. Sem `ativos`, lista os ativos.",
-        "operationId" : "listar_4",
+        "operationId" : "listar_5",
         "parameters" : [ {
           "in" : "query",
           "name" : "ativos",
@@ -1218,6 +1510,294 @@
       }
     },
     "schemas" : {
+      "AtendimentoView" : {
+        "type" : "object",
+        "properties" : {
+          "descricaoTecnica" : {
+            "type" : "string"
+          },
+          "encerradoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "estado" : {
+            "type" : "string",
+            "enum" : [ "PENDENTE", "EM_ANDAMENTO", "CONCLUIDO", "INTERROMPIDO" ]
+          },
+          "evidencias" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "iniciadoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tecnicoSub" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "ChamadoCliente" : {
+        "type" : "object",
+        "properties" : {
+          "abertoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "atendimentos" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AtendimentoView"
+            }
+          },
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "comViolacao" : {
+            "type" : "boolean"
+          },
+          "contratoId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "descricao" : {
+            "type" : "string"
+          },
+          "estado" : {
+            "type" : "string",
+            "enum" : [ "ABERTO", "ATRIBUIDO", "EM_ATENDIMENTO", "RESOLVIDO", "ENCERRADO", "CANCELADO" ]
+          },
+          "estadoFinalEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "local" : {
+            "type" : "string"
+          },
+          "numero" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "politicaVersaoId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "prioridade" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "prioridadeDefinida" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "prioridadePadrao" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "prioridadeSugerida" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "proximoVencimento" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "relogios" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelogioView"
+            }
+          },
+          "resolvidoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "titulo" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChamadoGestor" : {
+        "type" : "object",
+        "properties" : {
+          "abertoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "atendimentos" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AtendimentoView"
+            }
+          },
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "comViolacao" : {
+            "type" : "boolean"
+          },
+          "contratoId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "descricao" : {
+            "type" : "string"
+          },
+          "estado" : {
+            "type" : "string",
+            "enum" : [ "ABERTO", "ATRIBUIDO", "EM_ATENDIMENTO", "RESOLVIDO", "ENCERRADO", "CANCELADO" ]
+          },
+          "estadoFinalEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "local" : {
+            "type" : "string"
+          },
+          "numero" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "politicaVersaoId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "prioridade" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "prioridadeDefinida" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "prioridadePadrao" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "prioridadeSugerida" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "proximoVencimento" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "relogios" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelogioView"
+            }
+          },
+          "resolvidoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tecnicoSub" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "titulo" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChamadoTecnico" : {
+        "type" : "object",
+        "properties" : {
+          "abertoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "atendimentos" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/AtendimentoView"
+            }
+          },
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "comViolacao" : {
+            "type" : "boolean"
+          },
+          "descricao" : {
+            "type" : "string"
+          },
+          "estado" : {
+            "type" : "string",
+            "enum" : [ "ABERTO", "ATRIBUIDO", "EM_ATENDIMENTO", "RESOLVIDO", "ENCERRADO", "CANCELADO" ]
+          },
+          "estadoFinalEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "local" : {
+            "type" : "string"
+          },
+          "numero" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "prioridade" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "prioridadeSugerida" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "proximoVencimento" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "relogios" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelogioView"
+            }
+          },
+          "resolvidoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "tecnicoSub" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "titulo" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChamadoView" : {
+        "oneOf" : [ {
+          "$ref" : "#/components/schemas/ChamadoGestor"
+        }, {
+          "$ref" : "#/components/schemas/ChamadoCliente"
+        }, {
+          "$ref" : "#/components/schemas/ChamadoTecnico"
+        } ]
+      },
       "ClienteResponse" : {
         "type" : "object",
         "properties" : {
@@ -1270,6 +1850,35 @@
             "format" : "uuid"
           }
         }
+      },
+      "DadosAbertura" : {
+        "type" : "object",
+        "properties" : {
+          "contratoId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "descricao" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          },
+          "local" : {
+            "type" : "string",
+            "maxLength" : 300,
+            "minLength" : 0
+          },
+          "prioridadeSugerida" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          },
+          "titulo" : {
+            "type" : "string",
+            "maxLength" : 200,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "contratoId", "descricao", "local", "titulo" ]
       },
       "DadosCliente" : {
         "type" : "object",
@@ -1433,6 +2042,16 @@
           }
         }
       },
+      "NovaPrioridade" : {
+        "type" : "object",
+        "properties" : {
+          "prioridade" : {
+            "type" : "string",
+            "enum" : [ "ALTA", "NORMAL" ]
+          }
+        },
+        "required" : [ "prioridade" ]
+      },
       "NovoUsuario" : {
         "type" : "object",
         "properties" : {
@@ -1483,6 +2102,21 @@
           }
         },
         "required" : [ "number", "size", "totalElements", "totalPages" ]
+      },
+      "PagedModelChamadoView" : {
+        "type" : "object",
+        "properties" : {
+          "content" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChamadoView"
+            }
+          },
+          "page" : {
+            "$ref" : "#/components/schemas/PageMetadata"
+          }
+        },
+        "required" : [ "content", "page" ]
       },
       "PagedModelClienteResponse" : {
         "type" : "object",
@@ -1683,6 +2317,46 @@
           },
           "violouEmCicloAnterior" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "RelogioView" : {
+        "type" : "object",
+        "properties" : {
+          "ativo" : {
+            "type" : "boolean"
+          },
+          "ciclo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cumpridoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "estado" : {
+            "type" : "string",
+            "enum" : [ "CORRENDO", "CUMPRIDO", "VIOLADO" ]
+          },
+          "marcoInicial" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "prazoMinutos" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tipo" : {
+            "type" : "string",
+            "enum" : [ "RESPOSTA", "CAMPO", "RESOLUCAO" ]
+          },
+          "venceEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "violadoEm" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },
