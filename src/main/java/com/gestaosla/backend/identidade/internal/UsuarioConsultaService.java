@@ -50,4 +50,10 @@ class UsuarioConsultaService implements UsuarioConsulta {
     public Map<UUID, Papel> perfis(Collection<UUID> subs) {
         return usuarios.findBySubIn(subs).stream().collect(Collectors.toMap(Usuario::getSub, Usuario::getPerfil));
     }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean tecnicoAtivo(UUID sub) {
+        return usuarios.findBySub(sub).filter(u -> u.isAtivo() && u.getPerfil() == Papel.TECNICO).isPresent();
+    }
 }

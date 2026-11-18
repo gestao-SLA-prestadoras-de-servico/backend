@@ -156,7 +156,7 @@ Exchanges, filas e DLQs ficam em `infra/rabbitmq/topologia.json`, **fonte única
 
 ## Dependência entre módulos e eventos
 
-- **Módulo que ainda não existe:** quem precisa dele declara uma porta no próprio `api` e a injeta como `Optional<Porta>`; o outro módulo a implementa depois, sem mudar quem a usa. Exemplo: `identidade.api.ChamadosDoTecnico`, implementada pela [chamado - 13].
+- **Módulo que ainda não existe:** quem precisa dele declara uma porta no próprio `api` e a injeta como `Optional<Porta>`; o outro módulo a implementa depois, sem mudar quem a usa. Exemplo: `identidade.api.ChamadosDoTecnico`, declarada pelo identidade e implementada depois pelo chamado (`TransferenciaChamados`). Quem implementa a porta numa classe própria evita que um `@MockitoBean` da porta derrube outros beans do módulo.
 - **Usuário corrente num módulo de que o `identidade` depende** (ex.: `cadastro`): leia o campo por expressão, `@AuthenticationPrincipal(expression = "empresaClienteId") UUID empresa`, sem importar `UsuarioCorrente`. Importar o tipo cria ciclo entre os módulos, e o `ModularidadeTest` reprova. Exemplo: `cadastro.internal.ContratoController` (`GET /api/me/contratos`).
 - **Ouvinte que chama serviço externo** (Keycloak, e-mail) depois do commit: `@Async` + `@TransactionalEventListener`, como em `identidade.internal.ClienteInativadoListener`. Síncrono, ele seguraria a conexão da transação que publicou o evento durante toda a chamada. O evento não é persistido: se a aplicação cair no meio, o que faltou não é refeito (o desligamento normal espera as tarefas terminarem).
 
@@ -171,6 +171,8 @@ Todo prazo é contado em minutos da janela comercial (segunda a sexta, 08h às 1
 ## Chamado
 
 O estado do chamado só muda por `chamado.internal.TransicaoChamado.transicionar`: a entidade valida a transição (RN-10, `TRANSICAO_INVALIDA` fora dela) e a auditoria `MUDANCA_ESTADO` e o histórico são gravados na mesma transação. O histórico (`HistoricoChamado`) é a linha do tempo dos três perfis, com a visibilidade definida em `TipoEventoHistorico`; a auditoria continua só do gestor. Toda `Violacao` devolvida pelo sla vai para `NotificadorViolacao.notificar`, o único que grava `VIOLACAO` na outbox (gestores ativos + técnico atribuído, `eventoId` determinístico). Atendimentos: `AtendimentoService.criarPendente` e `interromperCorrente`, com no máximo um corrente por chamado (índice único parcial); o evidencia lê o corrente por `chamado.api.AtendimentoConsulta`.
+
+Trocar o técnico (atribuição, reatribuição e transferência por inativação) passa por `AtribuicaoService.trocarTecnico`: interrompe o atendimento corrente, avisa o novo técnico e nunca toca os relógios (RN-22). O primeiro posicionamento (`PosicionamentoService`) cumpre a RESPOSTA e grava o e-mail ao cliente na mesma transação. O início do atendimento (`AtendimentoService.iniciar`) cumpre o CAMPO; o cancelamento (`CancelamentoService`) interrompe o atendimento e não avisa o técnico. A preferência de notificação de conclusão é por gestor e por chamado (`PreferenciaNotificacaoService.gestoresComPreferencia`).
 
 Consultas de chamado passam sempre pelo escopo do usuário (`ConsultaChamadoService`): gestor vê todos, cliente os da própria empresa, técnico os atribuídos a ele agora; fora do escopo é 404 (RN-126), e parâmetros como `clienteId` não ampliam nada. Outro módulo que precise saber se o usuário vê um chamado usa `chamado.api.AcessoChamado.podeAcessar`. Cada perfil tem a sua visão (`ChamadoGestor`, `ChamadoCliente`, `ChamadoTecnico`); a do técnico nunca leva contrato nem política.
 

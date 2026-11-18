@@ -233,6 +233,172 @@
         "tags" : [ "Chamados" ]
       }
     },
+    "/api/chamados/{id}/atendimento/descricao" : {
+      "put" : {
+        "description" : "Somente o TECNICO atribuído, com o atendimento em andamento. Pode ser reescrita até a conclusão.",
+        "operationId" : "registrarDescricao",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Descricao"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Registrar a descrição técnica",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/atendimento/inicio" : {
+      "post" : {
+        "description" : "Somente o TECNICO atribuído, com o chamado em ATRIBUIDO. Cumpre o SLA de atendimento em campo no primeiro início do ciclo.",
+        "operationId" : "iniciarAtendimento",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Iniciar o atendimento",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/atribuicao" : {
+      "post" : {
+        "description" : "Somente GESTOR, em ABERTO, ATRIBUIDO ou EM_ATENDIMENTO. `version` é a do chamado lido: se mudou, 409. Em EM_ATENDIMENTO o chamado volta a ATRIBUIDO e o atendimento é interrompido. Nenhum prazo de SLA muda.",
+        "operationId" : "atribuir",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Atribuicao"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Atribuir ou reatribuir o técnico",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/cancelamento" : {
+      "post" : {
+        "description" : "Somente GESTOR, com motivo, em ABERTO, ATRIBUIDO ou EM_ATENDIMENTO. O atendimento em andamento é interrompido; o chamado cancelado não tem apuração de SLA.",
+        "operationId" : "cancelar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Cancelamento"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Cancelar chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
     "/api/chamados/{id}/historico" : {
       "get" : {
         "description" : "Linha do tempo filtrada pelo perfil; o gestor vê todos os eventos.",
@@ -264,6 +430,122 @@
           }
         },
         "summary" : "Histórico do chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/posicionamento" : {
+      "post" : {
+        "description" : "Somente GESTOR, em qualquer estado não final. Cumpre o SLA de resposta e envia o texto por e-mail ao cliente. Só uma vez: a segunda responde 422 `POSICIONAMENTO_JA_REGISTRADO`.",
+        "operationId" : "posicionar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Posicionamento"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Registrar o primeiro posicionamento",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/preferencia-notificacao" : {
+      "delete" : {
+        "description" : "Somente GESTOR; só a do próprio gestor.",
+        "operationId" : "desativarPreferencia",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Preferência inativa"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Desativar a minha preferência de notificação",
+        "tags" : [ "Chamados" ]
+      },
+      "put" : {
+        "description" : "Somente GESTOR. Avisa o próprio gestor quando o técnico concluir o atendimento deste chamado. Repetir não muda nada.",
+        "operationId" : "ativarPreferencia",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Preferência ativa"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Ativar a minha preferência de notificação",
         "tags" : [ "Chamados" ]
       }
     },
@@ -1542,6 +1824,31 @@
           }
         }
       },
+      "Atribuicao" : {
+        "type" : "object",
+        "properties" : {
+          "tecnicoSub" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "tecnicoSub", "version" ]
+      },
+      "Cancelamento" : {
+        "type" : "object",
+        "properties" : {
+          "motivo" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "motivo" ]
+      },
       "ChamadoCliente" : {
         "type" : "object",
         "properties" : {
@@ -1591,6 +1898,13 @@
           "politicaVersaoId" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "posicionadoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "posicionamento" : {
+            "type" : "string"
           },
           "prioridade" : {
             "type" : "string",
@@ -1669,6 +1983,9 @@
           "local" : {
             "type" : "string"
           },
+          "notificarConclusao" : {
+            "type" : "boolean"
+          },
           "numero" : {
             "type" : "integer",
             "format" : "int64"
@@ -1676,6 +1993,13 @@
           "politicaVersaoId" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "posicionadoEm" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "posicionamento" : {
+            "type" : "string"
           },
           "prioridade" : {
             "type" : "string",
@@ -1713,6 +2037,10 @@
           },
           "titulo" : {
             "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -1959,6 +2287,17 @@
           }
         },
         "required" : [ "prazos", "prioridadePadrao" ]
+      },
+      "Descricao" : {
+        "type" : "object",
+        "properties" : {
+          "descricao" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "descricao" ]
       },
       "EdicaoCliente" : {
         "type" : "object",
@@ -2207,6 +2546,17 @@
             "$ref" : "#/components/schemas/VersaoResponse"
           }
         }
+      },
+      "Posicionamento" : {
+        "type" : "object",
+        "properties" : {
+          "texto" : {
+            "type" : "string",
+            "maxLength" : 4000,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "texto" ]
       },
       "Prazos" : {
         "type" : "object",

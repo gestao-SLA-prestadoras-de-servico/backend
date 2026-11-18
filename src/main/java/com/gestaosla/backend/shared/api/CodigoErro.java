@@ -23,6 +23,7 @@ public enum CodigoErro {
 
     // Regras de negócio: lançados via RegraNegocioException (422)
     TRANSICAO_INVALIDA,         // RN-11, RN-13
+    POSICIONAMENTO_JA_REGISTRADO, // chamado-06: o primeiro posicionamento só é registrado uma vez (RN-23)
     CONTRATO_FORA_VIGENCIA,     // RN-01
     CONTRATO_SEM_POLITICA,      // RN-03
     POLITICA_INEXISTENTE,       // cadastro-04: política informada no vínculo não existe

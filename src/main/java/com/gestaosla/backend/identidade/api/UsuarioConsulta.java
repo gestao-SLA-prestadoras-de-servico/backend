@@ -15,4 +15,7 @@ public interface UsuarioConsulta {
 
     /** Perfil de cada sub com registro local; sub sem registro fica fora do mapa. Filtra destinatários (RN-41). */
     Map<UUID, Papel> perfis(Collection<UUID> subs);
+
+    /** Se o sub é de um técnico ativo: quem pode receber um chamado (RN-20, RN-133). */
+    boolean tecnicoAtivo(UUID sub);
 }

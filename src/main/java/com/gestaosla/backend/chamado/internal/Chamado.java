@@ -113,6 +113,26 @@ public class Chamado extends EntidadeBase {
         this.prioridadeDefinida = prioridade;
     }
 
+    /** Primeiro posicionamento ao cliente (RF-16); só uma vez. */
+    void posicionar(String texto, Instant instante) {
+        if (posicionadoEm != null) {
+            throw new RegraNegocioException(CodigoErro.POSICIONAMENTO_JA_REGISTRADO, "O primeiro posicionamento já foi registrado.");
+        }
+        this.posicionamento = texto;
+        this.posicionadoEm = instante;
+    }
+
+    /** @return o técnico anterior, ou {@code null} na primeira atribuição */
+    UUID atribuir(UUID tecnicoSub) {
+        UUID anterior = this.tecnicoSub;
+        this.tecnicoSub = tecnicoSub;
+        return anterior;
+    }
+
+    void registrarMotivoCancelamento(String motivo) {
+        this.motivoCancelamento = motivo;
+    }
+
     /**
      * Muda o estado (RN-10). Fora da máquina, lança {@code TRANSICAO_INVALIDA} (RN-13); estados finais não aceitam
      * nenhuma transição (RN-11). Só a {@link TransicaoChamado} chama, para a auditoria e o histórico não faltarem.

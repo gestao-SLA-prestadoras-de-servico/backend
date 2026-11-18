@@ -5,7 +5,9 @@ import java.util.UUID;
 
 import com.gestaosla.backend.chamado.api.AtendimentoCorrente;
 import com.gestaosla.backend.chamado.api.EstadoAtendimento;
+import com.gestaosla.backend.shared.api.CodigoErro;
 import com.gestaosla.backend.shared.api.EntidadeBase;
+import com.gestaosla.backend.shared.api.RegraNegocioException;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -57,6 +59,23 @@ public class Atendimento extends EntidadeBase {
         }
         estado = EstadoAtendimento.INTERROMPIDO;
         encerradoEm = instante;
+    }
+
+    /** Início do atendimento presencial (RF-22). */
+    void iniciar(Instant instante) {
+        if (estado != EstadoAtendimento.PENDENTE) {
+            throw new IllegalStateException("Atendimento " + getId() + " já está " + estado + ".");
+        }
+        estado = EstadoAtendimento.EM_ANDAMENTO;
+        iniciadoEm = instante;
+    }
+
+    /** Descrição técnica do que foi executado (RF-23); pode ser reescrita enquanto o atendimento está em andamento. */
+    void descrever(String descricao) {
+        if (estado != EstadoAtendimento.EM_ANDAMENTO) {
+            throw new RegraNegocioException(CodigoErro.TRANSICAO_INVALIDA, "A descrição só é registrada com o atendimento em andamento.");
+        }
+        descricaoTecnica = descricao;
     }
 
     AtendimentoCorrente corrente() {

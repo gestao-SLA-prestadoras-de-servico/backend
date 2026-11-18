@@ -22,6 +22,7 @@ public final class ChamadoTestHelper {
     private final TransicaoChamado transicao;
     private final NotificadorViolacao notificador;
     private final AtendimentoService atendimentos;
+    private final PreferenciaNotificacaoService preferencias;
     private final TransactionTemplate transacao;
 
     public ChamadoTestHelper(ApplicationContext contexto) {
@@ -29,6 +30,7 @@ public final class ChamadoTestHelper {
         transicao = contexto.getBean(TransicaoChamado.class);
         notificador = contexto.getBean(NotificadorViolacao.class);
         atendimentos = contexto.getBean(AtendimentoService.class);
+        preferencias = contexto.getBean(PreferenciaNotificacaoService.class);
         transacao = contexto.getBean(TransactionTemplate.class);
     }
 
@@ -63,6 +65,10 @@ public final class ChamadoTestHelper {
 
     public void criarPendenteSemTransacao(UUID chamadoId, UUID tecnicoSub) {
         atendimentos.criarPendente(chamadoId, tecnicoSub);
+    }
+
+    public List<UUID> gestoresComPreferencia(UUID chamadoId) {
+        return preferencias.gestoresComPreferencia(chamadoId);
     }
 
     public List<EstadoAtendimento> estadosDosAtendimentos(UUID chamadoId) {

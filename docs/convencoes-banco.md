@@ -43,6 +43,8 @@ A apuração de SLA (`apuracao_sla`, RN-68) segue o mesmo modelo: `@Immutable`, 
 
 O histórico do chamado (`chamado_historico`) também: `@Immutable`, `ocorrido_em` vindo do `Clock` e trigger que rejeita `UPDATE`, `DELETE` e `TRUNCATE` (ver `V12__cria_chamado.sql`). O `evento` é texto sem CHECK, como a `operacao` da auditoria, para cada task acrescentar os seus sem migração.
 
+A preferência de notificação (`preferencia_notificacao`) também não tem `updated_at`: a linha é só criada e removida (desativar apaga), e a trilha das mudanças fica na auditoria.
+
 ### Leitura da tabela de outro módulo
 
 O `Chamado` lê `relogio_sla` por `@Formula` (`comViolacao` e `proximoVencimento`), só para filtrar e ordenar a listagem no banco com paginação. É leitura; quem grava a tabela continua sendo só o sla. Renomear `relogio_sla` ou as colunas `chamado_id`, `ativo`, `vence_em`, `cumprido_em` e `violado_em` exige ajustar essas fórmulas.
