@@ -13,6 +13,7 @@ import javax.imageio.ImageIO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.resilience4j.retry.annotation.Retry;
 import lombok.RequiredArgsConstructor;
@@ -43,13 +44,12 @@ class GeradorDerivados {
     private final EvidenciaRepository evidencias;
     private final ArmazenamentoEvidencias armazenamento;
     private final Clock clock;
+    private final TransactionTemplate transacao;
 
     /**
      * Cada tentativa reivindica de novo (RECEBIDA ou PROCESSANDO) e sobrescreve as mesmas chaves, que são determinísticas:
-     * reprocessar depois de uma queda é seguro. Sem transação ao redor: a única escrita no banco é o UPDATE final, que
-     * comita antes de o método retornar e, portanto, antes do ack (RN-90).
-     * ponytail: duas entregas simultâneas da mesma mensagem em PROCESSANDO gerariam os derivados duas vezes (sobrescrita
-     * idêntica); na prática o publicador só republica depois de ciclos de 5 s. Travar por linha se isso importar.
+     * Uma nova tentativa pode sobrescrever os mesmos derivados. A geração trava só a linha da evidência para
+     * evitar que o expurgo remova o prefixo enquanto os derivados estão sendo gravados.
      */
     @Retry(name = "evidencias")
     public void gerar(UUID id) {
@@ -57,14 +57,19 @@ class GeradorDerivados {
             log.info("Evidência {} descartada: não está RECEBIDA nem PROCESSANDO (já processada, expurgada, em falha ou inexistente)", id);
             return;
         }
-        Evidencia evidencia = evidencias.findById(id).orElseThrow();
+        transacao.executeWithoutResult(status -> gerarComTrava(id));
+    }
+
+    private void gerarComTrava(UUID id) {
+        Evidencia evidencia = evidencias.buscarComTrava(id).orElseThrow();
+        if (evidencia.getEstado() != EstadoEvidencia.PROCESSANDO) {
+            return;
+        }
         BufferedImage imagem = decodificar(lerOriginal(evidencia.getChaveOriginal()), id);
         ChaveObjeto chaves = new ChaveObjeto(evidencia.getChamadoId(), id);
         gravar(chaves.miniatura(), Redimensionador.jpeg(imagem, LADO_MINIATURA));
         gravar(chaves.visualizacao(), Redimensionador.jpeg(imagem, LADO_VISUALIZACAO));
-        if (evidencias.concluir(id, chaves.miniatura(), chaves.visualizacao(), Instant.now(clock)) == 0) {
-            log.warn("Evidência {} mudou de estado durante o processamento; os derivados ficam no storage mas o estado não foi alterado", id);
-        }
+        evidencias.concluir(id, chaves.miniatura(), chaves.visualizacao(), Instant.now(clock));
     }
 
     // Lê tudo antes de decodificar: falha de rede no meio do stream é transitória; falha de decodificação, não.

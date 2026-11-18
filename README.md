@@ -189,6 +189,12 @@ nas métricas `retencao.itens`, `retencao.falhas` e `retencao.duracao`, com a ta
 A rotina remove da outbox eventos publicados há mais de sete dias e da auditoria
 registros com mais de cinco anos de calendário. O trigger da auditoria continua
 validando cada exclusão.
+O passo de evidências expurga o conteúdo de chamados encerrados ou cancelados há
+mais de 180 dias e registra a operação na auditoria. A linha da evidência permanece
+com seus metadados e a data do expurgo.
+A geração de derivados e o expurgo usam a mesma trava de linha no PostgreSQL
+durante o acesso ao MinIO. Assim, o processamento de uma mensagem atrasada
+respeita o estado `EXPURGADA`.
 
 ## Storage das evidências (MinIO)
 

@@ -398,6 +398,7 @@ para iniciar um ciclo no horário de teste e acompanhe o log da etapa `outbox`.
 | 7K.1 | Prepare três linhas: uma publicada há oito dias, outra há seis dias e uma pendente criada há oito dias. Aguarde o ciclo. | Só a publicação de oito dias é removida. |
 | 7K.2 | Confira o log e as métricas da etapa `outbox`. | O log e `retencao.itens` mostram um item removido. `retencao.duracao` registra a execução. |
 | 7K.3 | Prepare um registro de auditoria com cinco anos e um dia e outro a um dia de completar cinco anos. Aguarde o ciclo. | O registro vencido é removido, o mais recente permanece e a etapa `auditoria` conta uma remoção. |
+| 7K.4 | Prepare uma evidência com original e derivados em chamado cancelado há 181 dias e outra em chamado resolvido há um ano. Aguarde o ciclo. | O prefixo da primeira fica vazio no MinIO. A consulta mantém os metadados e o conteúdo responde 410. A auditoria registra `EXPIRACAO_RETENCAO`. A segunda permanece disponível. |
 
 ## 8. Desfecho
 
