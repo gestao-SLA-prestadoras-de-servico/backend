@@ -15,7 +15,11 @@ enum TipoEventoHistorico {
     // [chamado - 07] e transferência por inativação: troca de técnico é organização interna.
     ATRIBUICAO(false, true),
     REATRIBUICAO(false, true),
-    TRANSFERENCIA_POR_INATIVACAO(false, true);
+    TRANSFERENCIA_POR_INATIVACAO(false, true),
+    // [chamado - 12]: o cliente reabre com justificativa; os três perfis veem.
+    REABERTURA(true, true),
+    // [chamado - 14]: gravado pela rotina, ator SISTEMA; o SLA já é visível aos três perfis.
+    VIOLACAO_SLA(true, true);
 
     private final boolean visivelCliente;
     private final boolean visivelTecnico;

@@ -1,5 +1,6 @@
 package com.gestaosla.backend.identidade.api;
 
+import java.util.Map;
 import java.util.UUID;
 
 import com.gestaosla.backend.shared.api.Ator;
@@ -12,6 +13,12 @@ public interface ChamadosDoTecnico {
 
     /** Quantos chamados do técnico estão em {@code ATRIBUIDO}, {@code EM_ATENDIMENTO} ou {@code RESOLVIDO}. */
     long contarNaoFinalizados(UUID tecnicoSub);
+
+    /**
+     * Os mesmos chamados, por estado, para o modal da inativação ([chamado - 13]): as três chaves sempre presentes, com
+     * zero quando não há. Chave em texto porque o identidade não conhece o estado do chamado.
+     */
+    Map<String, Long> contarNaoFinalizadosPorEstado(UUID tecnicoSub);
 
     /** Transfere esses chamados ao substituto na transação de quem chama (RN-134) e os audita em nome do {@code ator}. */
     void transferir(UUID tecnicoSub, UUID substitutoSub, Ator ator);

@@ -388,6 +388,38 @@ Usa a evidência **EV2** em `FALHA` do 7H.5 (MinIO já religado).
 | 7J.6 | `POST` com um id inexistente | 404 |
 | 7J.7 | No console do RabbitMQ, mova a mensagem antiga da `evidencias.processamento.dlq` de volta à fila (shovel/move) | Descartada com ack; a evidência segue `DISPONIVEL` e nada é regravado no MinIO |
 
+## 7K. Conclusão, validação, reabertura e chamados a transferir ([chamado - 11] a [chamado - 13])
+
+Usa o chamado **CH** do 7G (EM_ATENDIMENTO, com a evidência **EV** enviada por **UT2**), o cliente **TC** da empresa de CH, um cliente **TC2** de outra empresa e um chamado **CH3**, aberto como no 7D.1, atribuído a UT2 e iniciado (7F.5), sem evidência.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7K.1 | Como **UT2**: `POST /api/chamados/{CH3}/atendimento/conclusao` | 422 `EVIDENCIA_OBRIGATORIA`; CH3 segue `EM_ATENDIMENTO` |
+| 7K.2 | Como **UT2**, em CH (com evidência e ainda sem descrição): `POST /api/chamados/{CH}/atendimento/conclusao` | 422 `DESCRICAO_TECNICA_OBRIGATORIA` |
+| 7K.3 | Como gestor: `PUT /api/chamados/{CH}/preferencia-notificacao`. Como **UT2**: `PUT .../atendimento/descricao` e repetir o 7K.2 | 200; `estado: RESOLVIDO`, `resolvidoEm` preenchido; relógio RESOLUCAO `CUMPRIDO`; atendimento `CONCLUIDO` |
+| 7K.4 | `select tipo, routing_key, payload->'destinatarios' from outbox_eventos where payload->'chamado'->>'id' = '{CH}' and tipo in ('RESOLUCAO', 'CONCLUSAO');` | `RESOLUCAO`/`email` com o e-mail de contato da empresa; `CONCLUSAO`/`interna` só com o sub do gestor do 7K.3 |
+| 7K.5 | Como **TC**: `GET /api/chamados/{CH}` e anote `version` (**V**) | `version` presente na visão do cliente |
+| 7K.6 | Como **TC2**: `POST /api/chamados/{CH}/reabertura` com `{"justificativa": "x", "version": V}` | 404 |
+| 7K.7 | Como **TC**: `POST /api/chamados/{CH}/reabertura` com `{"justificativa": "Voltou a falhar", "version": V - 1}` | 409 `CONFLITO_VERSAO` |
+| 7K.8 | Como **TC**: o mesmo com `"version": V` | 200; `estado: ATRIBUIDO`, mesmo técnico, `resolvidoEm` ausente; um atendimento novo `PENDENTE`; relógios CAMPO e RESOLUCAO no ciclo 2, RESPOSTA intacto |
+| 7K.9 | `select operacao, ator_sub, dados from auditoria where chamado_id = '{CH}' and operacao = 'REABERTURA';` e o `REABERTURA` em `outbox_eventos` | Auditoria com o sub de TC, `justificativa`, `de: RESOLVIDO`, `para: ATRIBUIDO`; evento `REABERTURA` para UT2 |
+| 7K.10 | **UT2** inicia (7F.5), descreve e conclui CH de novo; **TC** valida com `POST /api/chamados/{CH}/validacao` e a `version` atual | 200; `estado: ENCERRADO`, `estadoFinalEm` preenchido; `GET /api/chamados/{CH}/sla` → `apurado: true` |
+| 7K.11 | Como **TC**: reabrir CH | 422 `REABERTURA_NAO_PERMITIDA` |
+| 7K.12 | Como gestor: `GET /api/usuarios/{id de UT2}/chamados-a-transferir` | 200 com `ATRIBUIDO`, `EM_ATENDIMENTO` e `RESOLVIDO`, conforme os chamados não finalizados de UT2 (CH3 conta em `EM_ATENDIMENTO`) |
+
+## 7L. Rotinas de violação e de validação automática ([chamado - 14] e [chamado - 15])
+
+As rotinas rodam sozinhas: a de violação a cada 15 minutos (:00, :15, :30 e :45) e a de validação automática na hora cheia. Os passos adiantam os prazos por SQL, no banco `app_principal`, e esperam a próxima passada. Usa o chamado **CH3** do 7K (EM_ATENDIMENTO, de UT2) e um chamado **CHR**, aberto, atribuído, iniciado e concluído como no 7K.3, que fica RESOLVIDO.
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7L.1 | `update relogio_sla set vence_em = now() - interval '1 minute' where chamado_id = '{CH3}' and tipo = 'RESOLUCAO' and ativo;` e esperar a próxima passada de 15 minutos | `violado_em` igual ao `vence_em` gravado; `GET /api/chamados/{CH3}` mostra `comViolacao: true` e o relógio RESOLUCAO `VIOLADO` |
+| 7L.2 | `select routing_key, payload->>'relogio', payload->'destinatarios' from outbox_eventos where tipo = 'VIOLACAO' and payload->'chamado'->>'id' = '{CH3}';` e o histórico `GET /api/chamados/{CH3}/historico` | Um evento `interna`, `RESOLUCAO`, com os gestores ativos e UT2; no histórico, `VIOLACAO_SLA` sem ator |
+| 7L.3 | Esperar mais uma passada | Nenhum evento `VIOLACAO` novo para CH3 |
+| 7L.4 | `curl -s -H "Authorization: Bearer $TG" http://localhost:8080/actuator/prometheus \| grep '^sla_violacoes'` | `sla_violacoes_total{relogio="RESOLUCAO",...}` com pelo menos 1 |
+| 7L.5 | `update chamado set resolvido_em = now() - interval '7 days' where id = '{CHR}';` e esperar a próxima hora cheia | `aviso_enviado_em` preenchido; um `AVISO_ENCERRAMENTO` (`email`) para o e-mail de contato da empresa, com `encerramentoPrevistoEm` 1 dia útil depois do aviso; CHR segue RESOLVIDO |
+| 7L.6 | `update chamado set aviso_enviado_em = now() - interval '7 days' where id = '{CHR}';` e esperar a próxima hora cheia | CHR `ENCERRADO`, com `estadoFinalEm`; `GET /api/chamados/{CHR}/sla` → `apurado: true`; auditoria `VALIDACAO_AUTOMATICA` e `MUDANCA_ESTADO` com `ator_sub` nulo; um só `AVISO_ENCERRAMENTO` |
+
 ## 8. Desfecho
 
 | # | Passo | Resultado esperado |
