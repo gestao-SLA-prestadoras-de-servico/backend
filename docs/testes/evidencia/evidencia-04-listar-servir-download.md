@@ -80,6 +80,18 @@ Execução com `TZ=UTC`, branch `feat/evidencia`.
 
 Observações: o `HEAD` lê o objeto inteiro do MinIO e o descarta (ver a task). Não verificado: comportamento dos navegadores com `no-cache`. O fluxo no ambiente dev foi verificado (seção abaixo).
 
+## Ajuste da execução do CI (2026-11-19)
+
+No job `Integration Tests` do PR #152, `shouldAnswerHeadWithTheSameHeadersAsGetAndLeaveNoStorageStreamOpen` falhou porque verificou o contador imediatamente após o cliente receber a resposta: nesse instante, o callback assíncrono ainda não tinha fechado o stream (`abertos=1`, `fechados=0`). O teste passou a aguardar até cinco segundos pelo fechamento, mantendo a falha caso o stream permaneça aberto. A implementação do endpoint continua fechando o stream com `try-with-resources`.
+
+| Verificação | Como | Esperado | Obtido | Status |
+| --- | --- | --- | --- | --- |
+| Regressão de `HEAD` após sincronizar o teste | Java 21.0.12.1, JVM em UTC; `ConsultaEvidenciaTest#shouldAnswerHeadWithTheSameHeadersAsGetAndLeaveNoStorageStreamOpen` | resposta sem corpo, cabeçalhos iguais ao GET e `abertos=fechados` em até 5 s | após restaurar o fechamento, 1 teste passou em 45,12 s | ✅ |
+| Quebra controlada do fechamento do stream | Removido temporariamente o `try-with-resources` de `EvidenciaController` e executado o mesmo teste | teste falha se o stream não fechar em 5 s | falhou como esperado com `ConditionTimeoutException`: `expected: 0L but was: 1L within 5 seconds` | ✅ |
+| Suíte completa | `clean test` local no Windows | 0 falhas e 0 erros | 487 testes: 2 falhas nos testes de contrato JSON, causadas somente por diferenças CRLF/LF do checkout Windows, e 1 erro porque o container Keycloak de `CadastroUsuarioTest` expirou ao aguardar o endpoint | ⚠️ ambiente local |
+
+Observação da suíte local: o comando foi iniciado com `TZ=UTC`, mas a JVM Java 25 permaneceu em `America/Sao_Paulo` (`-03:00`). Os arquivos JSON reescritos pelos dois testes de contrato tinham conteúdo idêntico ignorando quebras de linha; eles foram restaurados ao formato original do checkout. A falha de inicialização do Keycloak foi um timeout do Testcontainers, com `Unexpected end of file from server`. A regressão alterada passou também no `ConsultaEvidenciaTest` completo: 16 testes, 0 falhas.
+
 ## Verificação no ambiente dev (2026-11-16)
 
 Branch `feat/evidencia`, `make ci-run-dev` com os volumes de dev existentes (o Flyway aplicou até a V15 e o log mostrou "Bucket evidencias criado"). Massa criada pela própria API (dois clientes com contrato vigente, técnicos e clientes novos, senha definida pela Admin API do Keycloak) e chamado levado a `EM_ATENDIMENTO`. Os tokens vieram do client `flowsla-swagger` por Authorization Code + PKCE, sem navegador. O roteiro das seções 7G a 7J do `docs/plano-testes-manuais.md` foi automatizado em script, fora do repositório.

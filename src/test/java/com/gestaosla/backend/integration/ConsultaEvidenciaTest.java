@@ -3,6 +3,7 @@ package com.gestaosla.backend.integration;
 import static com.gestaosla.backend.TokenTeste.SUB_GESTOR;
 import static com.gestaosla.backend.TokenTeste.token;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -21,6 +22,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Random;
@@ -350,7 +352,8 @@ class ConsultaEvidenciaTest {
             assertThat(head.headers().allValues(cabecalho)).as(cabecalho).isEqualTo(get.headers().allValues(cabecalho));
         }
         assertThat(head.headers().firstValueAsLong("Content-Length")).hasValue(get.body().length);
-        assertThat(abertos.get() - fechados.get()).as("streams do storage abertos e não fechados após o HEAD (abertos=" + abertos + ")").isZero();
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(abertos.get() - fechados.get())
+                .as("streams do storage abertos e não fechados após o HEAD (abertos=" + abertos + ")").isZero());
     }
 
     // RN-81, RN-104: EXPURGADA responde 410 em qualquer variante; os metadados continuam na listagem.
