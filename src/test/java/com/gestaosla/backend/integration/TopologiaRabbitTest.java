@@ -91,6 +91,15 @@ class TopologiaRabbitTest {
     }
 
     @ParameterizedTest
+    @CsvSource({"email.1, notificacoes.email", "email.3, notificacoes.email", "interna.2, notificacoes.interna"})
+    void shouldReturnRetriedMessageToChannelQueueAfterDelay(String routingKey, String fila) {
+        // Retry do ms-notificacoes: a fila de espera devolve a mensagem ao canal quando o TTL da policy vence.
+        publicar(rabbit, "notificacoes.retry", routingKey);
+
+        await().atMost(Duration.ofSeconds(15)).until(() -> mensagens(fila) == 1);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"notificacoes.email.dlq", "notificacoes.interna.dlq"})
     void shouldExpireNotificationDlqMessagesAfterSevenDays(String dlq) {
         assertThat(((Number) argumentos(dlq).get("x-message-ttl")).longValue()).isEqualTo(SETE_DIAS_MS);

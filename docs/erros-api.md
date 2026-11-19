@@ -66,6 +66,7 @@ Fica em `shared.api.CodigoErro`. Novo código entra lá, com a RN em comentário
 | `CONTRATO_SEM_POLITICA` | Contrato sem política de SLA vinculada (RN-03); lançado por `cadastro.api.ContratoConsulta.versaoVigenteDaPolitica` |
 | `ORDEM_PRAZOS_INVALIDA` | Política com prazos fora da ordem resposta < campo < resolução (RN-30, RN-32) |
 | `EVIDENCIA_OBRIGATORIA` | Conclusão de atendimento sem evidência (RN-72) |
+| `DESCRICAO_TECNICA_OBRIGATORIA` | Conclusão de atendimento sem a descrição técnica (RN-72, chamado-11) |
 | `CANCELAMENTO_NAO_PERMITIDO` | Cancelamento a partir de `RESOLVIDO` ou depois (RN-19) |
 | `REATRIBUICAO_NAO_PERMITIDA` | Reatribuição fora de `ATRIBUIDO`/`EM_ATENDIMENTO` (RN-20) |
 | `REABERTURA_NAO_PERMITIDA` | Reabertura fora de `RESOLVIDO` (RN-93, RN-99) |

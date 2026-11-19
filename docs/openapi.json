@@ -233,6 +233,40 @@
         "tags" : [ "Chamados" ]
       }
     },
+    "/api/chamados/{id}/atendimento/conclusao" : {
+      "post" : {
+        "description" : "Somente o TECNICO atribuído, com o atendimento em andamento. Exige ao menos uma evidência (a ainda não processada já vale) e a descrição técnica; sem elas, 422 `EVIDENCIA_OBRIGATORIA` ou `DESCRICAO_TECNICA_OBRIGATORIA`. O chamado passa a RESOLVIDO e cumpre o SLA de resolução; o cliente recebe e-mail e os gestores com a preferência ativa, aviso.",
+        "operationId" : "concluirAtendimento",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Concluir o atendimento",
+        "tags" : [ "Chamados" ]
+      }
+    },
     "/api/chamados/{id}/atendimento/descricao" : {
       "put" : {
         "description" : "Somente o TECNICO atribuído, com o atendimento em andamento. Pode ser reescrita até a conclusão.",
@@ -704,6 +738,50 @@
         "tags" : [ "Chamados" ]
       }
     },
+    "/api/chamados/{id}/reabertura" : {
+      "post" : {
+        "description" : "Somente CLIENTE da empresa do chamado, em RESOLVIDO, com justificativa. Volta a ATRIBUIDO com o mesmo técnico, cria um atendimento novo e reinicia os prazos de campo e de resolução. Chamado ENCERRADO: 422 `REABERTURA_NAO_PERMITIDA`. `version` é a do chamado lido: se mudou, 409.",
+        "operationId" : "reabrir",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Reabertura"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Reabrir o chamado resolvido",
+        "tags" : [ "Chamados" ]
+      }
+    },
     "/api/chamados/{id}/sla" : {
       "get" : {
         "description" : "Para quem pode ver o chamado: gestor, todos; cliente, os da própria empresa; técnico, os atribuídos a ele. Chamado cancelado ou ainda não encerrado: `apurado: false`.",
@@ -745,6 +823,50 @@
           }
         },
         "summary" : "Resultado de SLA do chamado",
+        "tags" : [ "Chamados" ]
+      }
+    },
+    "/api/chamados/{id}/validacao" : {
+      "post" : {
+        "description" : "Somente CLIENTE da empresa do chamado, em RESOLVIDO. Encerra o chamado e congela a apuração de SLA. `version` é a do chamado lido: se mudou, 409.",
+        "operationId" : "validar",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Validacao"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Validar o chamado resolvido",
         "tags" : [ "Chamados" ]
       }
     },
@@ -1811,6 +1933,40 @@
         "tags" : [ "Identidade" ]
       }
     },
+    "/api/usuarios/{id}/chamados-a-transferir" : {
+      "get" : {
+        "description" : "Somente GESTOR. Quantos chamados do técnico estão em ATRIBUIDO, EM_ATENDIMENTO e RESOLVIDO: são os que passam ao substituto ao inativá-lo. Usuário que não é técnico: zeros.",
+        "operationId" : "chamadosATransferir",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "404" : {
+            "$ref" : "#/components/responses/NaoEncontrado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Chamados a transferir na inativação",
+        "tags" : [ "Identidade" ]
+      }
+    },
     "/api/usuarios/{id}/inativacao" : {
       "post" : {
         "description" : "Somente GESTOR. Desabilita a conta no Keycloak e preserva o registro. Idempotente. Técnico com chamados não finalizados exige `substitutoId`, o id de outro técnico ativo. Códigos 422: SUBSTITUTO_OBRIGATORIO, SUBSTITUTO_INVALIDO, AUTOINATIVACAO_NAO_PERMITIDA, ULTIMO_GESTOR_ATIVO.",
@@ -2238,6 +2394,10 @@
           },
           "titulo" : {
             "type" : "string"
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -3032,6 +3192,21 @@
           }
         }
       },
+      "Reabertura" : {
+        "type" : "object",
+        "properties" : {
+          "justificativa" : {
+            "type" : "string",
+            "maxLength" : 1000,
+            "minLength" : 0
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "justificativa", "version" ]
+      },
       "Relogio" : {
         "type" : "object",
         "properties" : {
@@ -3205,6 +3380,16 @@
             "format" : "uuid"
           }
         }
+      },
+      "Validacao" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        },
+        "required" : [ "version" ]
       },
       "VersaoResponse" : {
         "type" : "object",

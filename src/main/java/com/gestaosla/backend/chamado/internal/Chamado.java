@@ -129,6 +129,11 @@ public class Chamado extends EntidadeBase {
         return anterior;
     }
 
+    /** Aviso prévio da validação automática enviado (RN-34); a reabertura o limpa. */
+    void registrarAviso(Instant instante) {
+        this.avisoEnviadoEm = instante;
+    }
+
     void registrarMotivoCancelamento(String motivo) {
         this.motivoCancelamento = motivo;
     }
@@ -148,6 +153,11 @@ public class Chamado extends EntidadeBase {
         estado = destino;
         if (destino == EstadoChamado.RESOLVIDO) {
             resolvidoEm = instante;
+        }
+        if (anterior == EstadoChamado.RESOLVIDO && destino == EstadoChamado.ATRIBUIDO) {
+            // Reabertura (RN-93): a próxima resolução conta o prazo da validação automática e o aviso de novo.
+            resolvidoEm = null;
+            avisoEnviadoEm = null;
         }
         if (destino.finalizado()) {
             estadoFinalEm = instante; // início dos 180 dias de retenção das evidências (RN-100)

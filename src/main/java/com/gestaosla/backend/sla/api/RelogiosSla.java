@@ -2,6 +2,7 @@ package com.gestaosla.backend.sla.api;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.gestaosla.backend.cadastro.api.PoliticaDoContrato;
@@ -45,6 +46,20 @@ public interface RelogiosSla {
      * @return violações do ciclo encerrado que ainda não tinham sido marcadas (prazo vencido sem a rotina ter passado)
      */
     List<Violacao> reiniciarParaReabertura(UUID chamadoId, PoliticaDoContrato versao, Prioridade prioridade, Instant instante);
+
+    /**
+     * Relógios correndo com o prazo vencido antes de {@code agora}, em ordem de vencimento e id, depois do cursor
+     * ({@code aposVenceEm}, {@code aposId}). Ficam travados até o fim da transação de quem chama; os que outra transação
+     * está alterando ficam de fora e voltam na próxima passada (SKIP LOCKED). Para a rotina de 15 minutos (RF-34).
+     */
+    List<RelogioVencido> travarVencidos(Instant agora, Instant aposVenceEm, UUID aposId, int limite);
+
+    /**
+     * Marca a violação de um relógio vencido (RN-67: {@code violado_em} = vencimento).
+     *
+     * @return a violação, se foi marcada agora; vazio se já estava marcada
+     */
+    Optional<Violacao> marcarViolacao(UUID relogioId);
 
     /** Relógios ativos do chamado (um por tipo), com o estado derivado. Vazio se o chamado não tem relógios. */
     List<RelogioView> relogiosAtivos(UUID chamadoId);

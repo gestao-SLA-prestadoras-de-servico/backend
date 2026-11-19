@@ -24,6 +24,8 @@ public final class ChamadoTestHelper {
     private final AtendimentoService atendimentos;
     private final PreferenciaNotificacaoService preferencias;
     private final TransactionTemplate transacao;
+    private final RotinaViolacao rotinaViolacao;
+    private final RotinaValidacaoAutomatica validacaoAutomatica;
 
     public ChamadoTestHelper(ApplicationContext contexto) {
         chamados = contexto.getBean(ChamadoRepository.class);
@@ -32,6 +34,8 @@ public final class ChamadoTestHelper {
         atendimentos = contexto.getBean(AtendimentoService.class);
         preferencias = contexto.getBean(PreferenciaNotificacaoService.class);
         transacao = contexto.getBean(TransactionTemplate.class);
+        rotinaViolacao = contexto.getBean(RotinaViolacao.class);
+        validacaoAutomatica = contexto.getBean(RotinaValidacaoAutomatica.class);
     }
 
     public void transicionar(UUID chamadoId, EstadoChamado destino, Ator ator) {
@@ -73,5 +77,19 @@ public final class ChamadoTestHelper {
 
     public List<EstadoAtendimento> estadosDosAtendimentos(UUID chamadoId) {
         return atendimentos.doChamado(chamadoId).stream().map(Atendimento::getEstado).toList();
+    }
+
+    /** Uma passada da rotina de violação, com o lote informado (o agendamento usa 100). */
+    public void rodarRotinaViolacao(int tamanhoLote) {
+        rotinaViolacao.executar(tamanhoLote);
+    }
+
+    /** Uma passada da validação automática, com o lote informado (o agendamento usa 100). */
+    public void rodarValidacaoAutomatica(int tamanhoLote) {
+        validacaoAutomatica.executar(tamanhoLote);
+    }
+
+    public static UUID eventoIdAvisoEncerramento(UUID chamadoId, Instant resolvidoEm) {
+        return RotinaValidacaoAutomatica.eventoId(chamadoId, resolvidoEm);
     }
 }

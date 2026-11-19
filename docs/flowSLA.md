@@ -332,7 +332,7 @@ Identificados como `RF-XX`. A coluna **Perfil** indica quem executa.
 | RF-24 | Anexar evidências fotográficas em JPEG, PNG ou WebP, de até 10 MB | Técnico |
 | RF-25 | Receber confirmação imediata do envio da evidência, sem aguardar o processamento | Técnico |
 | RF-26 | Consultar o status de processamento de cada evidência | Técnico / Gestor |
-| RF-27 | Concluir o atendimento, exigindo ao menos uma evidência anexada | Técnico |
+| RF-27 | Concluir o atendimento, exigindo ao menos uma evidência anexada e a descrição técnica | Técnico |
 | RF-28 | Visualizar as evidências de um chamado, servidas pelo app-principal após verificação de acesso | Cliente / Gestor / Técnico |
 | RF-29 | Solicitar o reprocessamento manual de uma evidência que falhou | Gestor |
 
@@ -345,7 +345,7 @@ Identificados como `RF-XX`. A coluna **Perfil** indica quem executa.
 | RF-32 | Recalcular os prazos de atendimento em campo e de resolução na reabertura, usando a data e hora da reabertura como marco | Sistema |
 | RF-33 | Registrar a violação de cada SLA no instante em que o prazo é ultrapassado | Sistema |
 | RF-34 | Executar rotina que varre chamados abertos, marca prazos vencidos e registra os eventos de violação, a cada 15 minutos | Sistema |
-| RF-35 | Executar rotina diária que valida automaticamente chamados resolvidos há 3 dias úteis e envia o aviso prévio | Sistema |
+| RF-35 | Executar rotina, de hora em hora, que valida automaticamente chamados resolvidos há 3 dias úteis e envia o aviso prévio; se o aviso sair atrasado, o encerramento espera 1 dia útil depois dele | Sistema |
 | RF-36 | Congelar a apuração dos três SLAs no encerramento do chamado | Sistema |
 | RF-37 | Consultar o resultado de SLA de um chamado encerrado | Todos |
 
@@ -523,7 +523,7 @@ Em linguagem de contrato: um chamado de prioridade alta é reconhecido em 2 hora
 |---|---|
 | RN-70 | Um chamado pode ter múltiplos atendimentos; cada reabertura gera um novo |
 | RN-71 | Toda evidência pertence a um atendimento, nunca diretamente ao chamado |
-| RN-72 | Concluir um atendimento exige ao menos uma evidência anexada |
+| RN-72 | Concluir um atendimento exige ao menos uma evidência anexada e a descrição técnica do que foi executado (RF-23) |
 | RN-73 | Evidência em estado `RECEBIDA` já satisfaz RN-72; não é necessário aguardar o processamento |
 | RN-74 | Somente o técnico atribuído ao chamado pode anexar evidências a ele |
 | RN-75 | São aceitas apenas imagens JPEG, PNG ou WebP, até 10 MB; formato e tamanho são validados na recepção, antes de gravar no storage |

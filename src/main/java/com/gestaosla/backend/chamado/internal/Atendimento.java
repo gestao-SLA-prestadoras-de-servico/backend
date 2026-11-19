@@ -78,6 +78,15 @@ public class Atendimento extends EntidadeBase {
         descricaoTecnica = descricao;
     }
 
+    /** Conclusão pelo técnico (RF-27); as conferências de evidência e descrição ficam no serviço. */
+    void concluir(Instant instante) {
+        if (estado != EstadoAtendimento.EM_ANDAMENTO) {
+            throw new IllegalStateException("Atendimento " + getId() + " já está " + estado + ".");
+        }
+        estado = EstadoAtendimento.CONCLUIDO;
+        encerradoEm = instante;
+    }
+
     AtendimentoCorrente corrente() {
         return new AtendimentoCorrente(getId(), chamadoId, tecnicoSub, estado);
     }

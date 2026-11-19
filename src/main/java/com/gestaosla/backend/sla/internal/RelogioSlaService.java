@@ -6,8 +6,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,7 @@ import com.gestaosla.backend.cadastro.api.PoliticaDoContrato;
 import com.gestaosla.backend.cadastro.api.Prazos;
 import com.gestaosla.backend.cadastro.api.Prioridade;
 import com.gestaosla.backend.sla.api.CalendarioJanela;
+import com.gestaosla.backend.sla.api.RelogioVencido;
 import com.gestaosla.backend.sla.api.RelogioView;
 import com.gestaosla.backend.sla.api.RelogiosSla;
 import com.gestaosla.backend.sla.api.ResultadoCumprimento;
@@ -84,6 +87,19 @@ class RelogioSlaService implements RelogiosSla {
         relogios.flush();
         relogios.saveAll(novos);
         return violacoes;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<RelogioVencido> travarVencidos(Instant agora, Instant aposVenceEm, UUID aposId, int limite) {
+        return relogios.travarVencidos(agora, aposVenceEm, aposId, Limit.of(limite)).stream()
+                .map(r -> new RelogioVencido(r.getId(), r.getChamadoId(), r.getVenceEm())).toList();
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Optional<Violacao> marcarViolacao(UUID relogioId) {
+        return relogios.findById(relogioId).orElseThrow().marcarViolacao();
     }
 
     @Override

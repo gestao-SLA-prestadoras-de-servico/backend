@@ -177,6 +177,8 @@ O estado do chamado só muda por `chamado.internal.TransicaoChamado.transicionar
 
 Trocar o técnico (atribuição, reatribuição e transferência por inativação) passa por `AtribuicaoService.trocarTecnico`: interrompe o atendimento corrente, avisa o novo técnico e nunca toca os relógios (RN-22). O primeiro posicionamento (`PosicionamentoService`) cumpre a RESPOSTA e grava o e-mail ao cliente na mesma transação. O início do atendimento (`AtendimentoService.iniciar`) cumpre o CAMPO; o cancelamento (`CancelamentoService`) interrompe o atendimento e não avisa o técnico. A preferência de notificação de conclusão é por gestor e por chamado (`PreferenciaNotificacaoService.gestoresComPreferencia`).
 
+Rotinas agendadas do chamado: `RotinaViolacao` (`app.chamado.rotina-violacao.cron`, a cada 15 min) marca os relógios vencidos pelo `RelogiosSla.travarVencidos` e `marcarViolacao`, avisa pelo `NotificadorViolacao`, grava o histórico `VIOLACAO_SLA` e conta `sla_violacoes_total{relogio}`. `RotinaValidacaoAutomatica` (`app.chamado.validacao-automatica.cron`, de hora em hora) avisa o cliente 1080 minutos de janela depois da resolução e encerra aos 1620, pelo `ValidacaoService.encerrar`, com a auditoria `VALIDACAO_AUTOMATICA`. Padrão das rotinas: uma transação por lote (`TransactionTemplate`), lote lido com `PESSIMISTIC_WRITE` e `SKIP LOCKED` (o registro que o usuário está alterando fica para a passada seguinte) e cursor keyset, para o que é pulado não voltar no mesmo ciclo; ator `Ator.SISTEMA`. Nos testes o cron é `-` (desligado) e o `ChamadoTestHelper` roda uma passada com o lote que o teste quiser.
+
 Consultas de chamado passam sempre pelo escopo do usuário (`ConsultaChamadoService`): gestor vê todos, cliente os da própria empresa, técnico os atribuídos a ele agora; fora do escopo é 404 (RN-126), e parâmetros como `clienteId` não ampliam nada. Outro módulo que precise saber se o usuário vê um chamado usa `chamado.api.AcessoChamado.podeAcessar`. Cada perfil tem a sua visão (`ChamadoGestor`, `ChamadoCliente`, `ChamadoTecnico`); a do técnico nunca leva contrato nem política.
 
 ## Retenção e expurgo
@@ -266,6 +268,7 @@ O ambiente sobe o backend e as dependências dele. O backend só inicia depois q
 | MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
 | Keycloak   | http://localhost:8081                          | console admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`; realm `flowsla` importado de `infra/keycloak/realm-flowsla.json` |
 | Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
+| ms-notificacoes | http://localhost:8082                     | só com `make run-dev` (profile `ms`), construído de `../ms-notifications`; o `ci-run-dev` não o sobe |
 
 Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam na rede `flowsla-<ENVIRONMENT>`, que o ms-notificacoes usa como rede externa para acessar o PostgreSQL e o RabbitMQ compartilhados.
 

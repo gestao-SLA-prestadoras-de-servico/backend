@@ -19,7 +19,9 @@ class ChamadoRegrasAcesso {
             rotas.requestMatchers(HttpMethod.POST, "/api/chamados/*/posicionamento", "/api/chamados/*/atribuicao",
                     "/api/chamados/*/cancelamento").hasRole("GESTOR");
             rotas.requestMatchers("/api/chamados/*/preferencia-notificacao").hasRole("GESTOR");
-            rotas.requestMatchers(HttpMethod.POST, "/api/chamados/*/atendimento/inicio").hasRole("TECNICO");
+            rotas.requestMatchers(HttpMethod.POST, "/api/chamados/*/atendimento/inicio", "/api/chamados/*/atendimento/conclusao")
+                    .hasRole("TECNICO");
+            rotas.requestMatchers(HttpMethod.POST, "/api/chamados/*/validacao", "/api/chamados/*/reabertura").hasRole("CLIENTE");
             rotas.requestMatchers(HttpMethod.PUT, "/api/chamados/*/atendimento/descricao").hasRole("TECNICO");
             rotas.requestMatchers(HttpMethod.GET, "/api/chamados", "/api/chamados/**").hasAnyRole("GESTOR", "TECNICO", "CLIENTE");
         };

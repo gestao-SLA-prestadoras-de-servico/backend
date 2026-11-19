@@ -35,6 +35,7 @@ public enum CodigoErro {
     POLITICA_INEXISTENTE,       // cadastro-04: política informada no vínculo não existe
     ORDEM_PRAZOS_INVALIDA,      // RN-30, RN-32
     EVIDENCIA_OBRIGATORIA,      // RN-72
+    DESCRICAO_TECNICA_OBRIGATORIA, // RN-72: concluir o atendimento exige a descrição técnica (chamado-11)
     CANCELAMENTO_NAO_PERMITIDO, // RN-19
     REATRIBUICAO_NAO_PERMITIDA, // RN-20
     REABERTURA_NAO_PERMITIDA,   // RN-93, RN-99
