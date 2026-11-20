@@ -2,14 +2,36 @@ package com.gestaosla.backend.evidencia.internal;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.LockModeType;
+
 interface EvidenciaRepository extends JpaRepository<Evidencia, UUID> {
+
+    interface CandidataExpurgo {
+        UUID getId();
+
+        UUID getChamadoId();
+    }
+
+    @Query(value = """
+            select id, chamado_id as "chamadoId" from evidencia
+            where estado <> 'EXPURGADA' and (cast(:cursor as uuid) is null or id > :cursor)
+            order by id
+            """, nativeQuery = true)
+    List<CandidataExpurgo> candidatasExpurgo(UUID cursor, Pageable pagina);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select e from Evidencia e where e.id = :id")
+    Optional<Evidencia> buscarComTrava(UUID id);
 
     interface Contagem {
         UUID getAtendimentoId();
@@ -22,7 +44,7 @@ interface EvidenciaRepository extends JpaRepository<Evidencia, UUID> {
     @Query("select e.atendimentoId as atendimentoId, count(e) as total from Evidencia e where e.chamadoId = :chamadoId group by e.atendimentoId")
     List<Contagem> contarPorAtendimento(UUID chamadoId);
 
-    // UPDATEs condicionais, cada um na sua transação curta (o processamento não segura transação durante o I/O do storage).
+    // UPDATEs condicionais: a reivindicação comita antes da geração, e a conclusão integra a transação que trava a linha.
     // O JPQL não passa pelo @Version nem pelo @UpdateTimestamp: version e updatedAt são atualizados aqui.
 
     /** Reivindica o processamento (RN-86). PROCESSANDO entra para recuperar um processamento interrompido por queda. */

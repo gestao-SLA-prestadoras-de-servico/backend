@@ -81,4 +81,9 @@ class Evidencia {
         this.estado = EstadoEvidencia.RECEBIDA;
         this.enviadaEm = enviadaEm;
     }
+
+    void expurgar(Instant agora) {
+        estado = EstadoEvidencia.EXPURGADA;
+        expurgadaEm = agora;
+    }
 }

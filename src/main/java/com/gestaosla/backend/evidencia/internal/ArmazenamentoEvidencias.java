@@ -32,6 +32,9 @@ class ArmazenamentoEvidencias {
 
     private final S3Client s3;
 
+    record Pagina(List<ObjetoArmazenado> objetos, String proximoCursor) {
+    }
+
     ArmazenamentoEvidencias(S3Client s3) {
         this.s3 = s3;
     }
@@ -73,6 +76,15 @@ class ArmazenamentoEvidencias {
         });
     }
 
+    Pagina listarPagina(String cursor, int tamanho) {
+        var resposta = chamar(() -> s3.listObjectsV2(b -> b.bucket(BUCKET).startAfter(cursor).maxKeys(tamanho)));
+        var objetos = resposta.contents().stream()
+                .map(o -> new ObjetoArmazenado(o.key(), o.lastModified(), o.size())).toList();
+        // A última chave permanece um cursor válido mesmo quando a limpeza remove a página inteira.
+        String proximo = Boolean.TRUE.equals(resposta.isTruncated()) ? objetos.getLast().chave() : null;
+        return new Pagina(objetos, proximo);
+    }
+
     /** Remove tudo sob o prefixo; prefixo vazio apagaria o bucket inteiro, então é recusado. */
     void removerPrefixo(String prefixo) {
         if (prefixo == null || prefixo.isBlank()) {
@@ -82,10 +94,20 @@ class ArmazenamentoEvidencias {
                 .map(o -> ObjectIdentifier.builder().key(o.chave()).build()).toList();
         for (int i = 0; i < chaves.size(); i += LOTE_REMOCAO) {
             List<ObjectIdentifier> lote = chaves.subList(i, Math.min(i + LOTE_REMOCAO, chaves.size()));
-            var resposta = chamar(() -> s3.deleteObjects(b -> b.bucket(BUCKET).delete(d -> d.objects(lote).quiet(true))));
-            if (resposta.hasErrors() && !resposta.errors().isEmpty()) {
-                throw new ServicoIndisponivelException("Falha ao remover " + resposta.errors().size() + " objeto(s) do storage", null);
-            }
+            removerLote(lote);
+        }
+    }
+
+    void removerObjetos(List<String> chaves) {
+        if (!chaves.isEmpty()) {
+            removerLote(chaves.stream().map(chave -> ObjectIdentifier.builder().key(chave).build()).toList());
+        }
+    }
+
+    private void removerLote(List<ObjectIdentifier> lote) {
+        var resposta = chamar(() -> s3.deleteObjects(b -> b.bucket(BUCKET).delete(d -> d.objects(lote).quiet(true))));
+        if (!resposta.errors().isEmpty()) {
+            throw new ServicoIndisponivelException("Falha ao remover " + resposta.errors().size() + " objeto(s) do storage", null);
         }
     }
 

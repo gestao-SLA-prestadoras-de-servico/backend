@@ -181,6 +181,26 @@ Rotinas agendadas do chamado: `RotinaViolacao` (`app.chamado.rotina-violacao.cro
 
 Consultas de chamado passam sempre pelo escopo do usuário (`ConsultaChamadoService`): gestor vê todos, cliente os da própria empresa, técnico os atribuídos a ele agora; fora do escopo é 404 (RN-126), e parâmetros como `clienteId` não ampliam nada. Outro módulo que precise saber se o usuário vê um chamado usa `chamado.api.AcessoChamado.podeAcessar`. Cada perfil tem a sua visão (`ChamadoGestor`, `ChamadoCliente`, `ChamadoTecnico`); a do técnico nunca leva contrato nem política.
 
+## Retenção e expurgo
+
+A rotina roda diariamente às 02:00 em `FUSO_HORARIO`. A propriedade Spring
+`app.retencao.cron` permite ajustar o horário, por exemplo com o argumento
+`--app.retencao.cron="0 0 3 * * *"`. O valor `-` desativa o agendamento.
+Cada passo trabalha em lotes de 100 e registra itens removidos, falhas e duração
+nas métricas `retencao.itens`, `retencao.falhas` e `retencao.duracao`, com a tag `passo`.
+A rotina remove da outbox eventos publicados há mais de sete dias e da auditoria
+registros com mais de cinco anos de calendário. O trigger da auditoria continua
+validando cada exclusão.
+O passo de evidências expurga o conteúdo de chamados encerrados ou cancelados há
+mais de 180 dias e registra a operação na auditoria. A linha da evidência permanece
+com seus metadados e a data do expurgo.
+A geração de derivados e o expurgo usam a mesma trava de linha no PostgreSQL
+durante o acesso ao MinIO. Assim, o processamento de uma mensagem atrasada
+respeita o estado `EXPURGADA`.
+O passo de órfãos percorre o bucket `evidencias` em páginas. Objetos sem
+vínculo ou sem chave registrada são removidos após 24 horas. O passo preserva
+os objetos de evidências `RECEBIDA` ou `PROCESSANDO`.
+
 ## Storage das evidências (MinIO)
 
 O bucket `evidencias` é criado na subida (`ApplicationReadyEvent`) se não existir. Se o MinIO estiver fora do ar nesse momento, a aplicação só registra um aviso e sobe; o primeiro uso falha com 503 `SERVICO_INDISPONIVEL`. Todo acesso passa por `evidencia.internal.ArmazenamentoEvidencias` (gravar, ler em stream, listar com data de modificação, remover prefixo), que traduz erro de rede, timeout e 5xx em `ServicoIndisponivelException`. As chaves seguem `ChaveObjeto`: `evidencias/{chamadoId}/{evidenciaId}/original.{ext}`, `.../miniatura.jpg` e `.../visualizacao.jpg`. `MINIO_ENDPOINT`, `MINIO_ACCESS_KEY` e `MINIO_SECRET_KEY` vêm de `.envs/` (por ora o usuário root; usuário dedicado é pendência) e os timeouts ficam em `app.armazenamento.*`. Nos testes, o `MinioTeste` sobe um MinIO real por JVM e o `TestcontainersConfiguration` aponta todo contexto para ele.
@@ -199,7 +219,9 @@ O retry é do Resilience4j (`@Retry(name = "evidencias")` no `GeradorDerivados`,
 
 ## Listagem e download das evidências
 
-`GET /api/chamados/{id}/evidencias` (três papéis) lista as evidências agrupadas por atendimento, por `enviadaEm`, com id, nome, tipo, tamanho, hash, estado e datas; as `EXPURGADA` continuam na lista. `GET /api/evidencias/{id}/conteudo?variante=visualizacao|miniatura|original` (padrão `visualizacao`) serve a imagem. Nos dois, o acesso é `AcessoChamado.podeAcessar` (`ConsultaEvidenciaService`): outro cliente, técnico não atribuído e id inexistente respondem 404 (RN-126). Evidência `EXPURGADA` responde 410 `EVIDENCIA_EXPURGADA` (um `ResponseStatusException(GONE)`; o `GlobalExceptionHandler` põe o código pelo status). Se o derivado pedido ainda não existe (`RECEBIDA`, `PROCESSANDO`, `FALHA`), serve o original (RN-81). Não há endpoint de exclusão de evidência (RN-79, RN-108).
+`GET /api/chamados/{id}/evidencias` lista as evidências agrupadas por atendimento e ordenadas por `enviadaEm`, com id, nome, tipo, tamanho, hash, estado e datas. Apenas a listagem do gestor inclui evidências `EXPURGADA`, sem miniatura. `GET /api/evidencias/{id}`, exclusivo do gestor, retorna id, atendimento, chamado, envio, expurgo, hash e estado sem ler o MinIO (RF-46).
+
+`GET /api/evidencias/{id}/conteudo?variante=visualizacao|miniatura|original` (padrão `visualizacao`) serve a imagem. As consultas passam por `AcessoChamado.podeAcessar` (`ConsultaEvidenciaService`), com 404 para recurso inexistente ou fora do escopo (RN-126). O conteúdo de evidência `EXPURGADA` responde 410 `EVIDENCIA_EXPURGADA`. Se o derivado pedido ainda não existe (`RECEBIDA`, `PROCESSANDO`, `FALHA`), serve o original (RN-81).
 
 **Padrão de download por streaming** (`EvidenciaController.conteudo`): o objeto é aberto no MinIO **antes** de a resposta sair (falha do storage ainda vira 404/503 normal e o tamanho vai no `Content-Length`), e o corpo é um `StreamingResponseBody` que faz `transferTo` do `InputStream` do storage para a saída e o fecha (`try-with-resources`, inclusive se o cliente abortar). O arquivo nunca é carregado inteiro na memória: no teste de 10 MB o stream do storage trava depois de ~1 MB e o cliente já recebe os primeiros bytes. O `StreamingResponseBody` roda em outra thread: nada de acesso lazy do JPA dentro da lambda (`open-in-view=false`). Cabeçalhos: `Content-Type` (`image/jpeg` para derivado, o tipo gravado para o original), `Content-Length`, `ETag` forte `"{hash}-{variante servida}"` (o hash é do original; a variante distingue os bytes), `Cache-Control: private, no-cache` (o navegador guarda mas revalida sempre com `If-None-Match`; sem `max-age`, quem perdeu o acesso recebe 404 na revalidação) e `Content-Disposition: inline` (o Spring Security já põe `X-Content-Type-Options: nosniff`). `If-None-Match` igual responde 304 **sem abrir o objeto**, mas só depois da conferência de acesso. Nos testes com `MockMvc`, o corpo exige `asyncDispatch`.
 

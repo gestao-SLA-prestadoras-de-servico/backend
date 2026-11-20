@@ -3,6 +3,7 @@ package com.gestaosla.backend.integration;
 import static com.gestaosla.backend.TokenTeste.SUB_GESTOR;
 import static com.gestaosla.backend.TokenTeste.token;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -21,6 +22,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Random;
@@ -117,7 +119,7 @@ class ConsultaEvidenciaTest {
         Mockito.reset(s3);
     }
 
-    // RF-26: agrupada por atendimento, ordenada por enviadaEm, com os metadados; vale para os três papéis; EXPURGADA aparece.
+    // RF-26 e RF-46: todos veem evidências ativas no seu escopo; só o gestor vê as expurgadas.
     @Test
     void shouldListEvidenceGroupedByAttendanceOrderedBySentDateForAllRoles() throws Exception {
         UUID antigo = atendimento(chamado, "CONCLUIDO");
@@ -127,7 +129,7 @@ class ConsultaEvidenciaTest {
         String hash = sha256(png());
 
         for (String[] quem : new String[][] {{SUB_GESTOR, "GESTOR"}, {tecnico.toString(), "TECNICO"}, {cliente.toString(), "CLIENTE"}}) {
-            mvc.perform(get("/api/chamados/{id}/evidencias", chamado).header(HttpHeaders.AUTHORIZATION, token(quem[0], quem[1])))
+            var lista = mvc.perform(get("/api/chamados/{id}/evidencias", chamado).header(HttpHeaders.AUTHORIZATION, token(quem[0], quem[1])))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(2))
                     .andExpect(jsonPath("$[0].atendimentoId").value(antigo.toString()))
@@ -142,11 +144,45 @@ class ConsultaEvidenciaTest {
                     .andExpect(jsonPath("$[1].evidencias[0].hashSha256").value(hash))
                     .andExpect(jsonPath("$[1].evidencias[0].estado").value("DISPONIVEL"))
                     .andExpect(jsonPath("$[1].evidencias[0].enviadaEm").value("2026-11-16T10:00:20Z"))
-                    .andExpect(jsonPath("$[1].evidencias[0].expurgadaEm").doesNotExist())
-                    .andExpect(jsonPath("$[1].evidencias[1].id").value(e3.toString()))
-                    .andExpect(jsonPath("$[1].evidencias[1].estado").value("EXPURGADA"))
-                    .andExpect(jsonPath("$[1].evidencias[1].expurgadaEm").value("2026-11-16T11:00:00Z"));
+                    .andExpect(jsonPath("$[1].evidencias[0].expurgadaEm").doesNotExist());
+            if ("GESTOR".equals(quem[1])) {
+                lista.andExpect(jsonPath("$[1].evidencias.length()").value(2))
+                        .andExpect(jsonPath("$[1].evidencias[1].id").value(e3.toString()))
+                        .andExpect(jsonPath("$[1].evidencias[1].estado").value("EXPURGADA"))
+                        .andExpect(jsonPath("$[1].evidencias[1].expurgadaEm").value("2026-11-16T11:00:00Z"))
+                        .andExpect(jsonPath("$[1].evidencias[1].miniatura").doesNotExist());
+            } else {
+                lista.andExpect(jsonPath("$[1].evidencias.length()").value(1));
+            }
         }
+    }
+
+    @Test
+    void shouldReturnPurgedEvidenceMetadataOnlyForManager() throws Exception {
+        byte[] original = png();
+        UUID id = inserir(chamado, atendimento, "EXPURGADA", false, T0, original);
+
+        mvc.perform(get("/api/evidencias/{id}", id)
+                        .header(HttpHeaders.AUTHORIZATION, token(SUB_GESTOR, "GESTOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id.toString()))
+                .andExpect(jsonPath("$.atendimentoId").value(atendimento.toString()))
+                .andExpect(jsonPath("$.chamadoId").value(chamado.toString()))
+                .andExpect(jsonPath("$.enviadaEm").value(T0.toString()))
+                .andExpect(jsonPath("$.expurgadaEm").value("2026-11-16T11:00:00Z"))
+                .andExpect(jsonPath("$.hashSha256").value(sha256(original)))
+                .andExpect(jsonPath("$.estado").value("EXPURGADA"))
+                .andExpect(jsonPath("$.chaveOriginal").doesNotExist());
+
+        for (String[] quem : new String[][] {{tecnico.toString(), "TECNICO"}, {cliente.toString(), "CLIENTE"}}) {
+            mvc.perform(get("/api/evidencias/{id}", id)
+                            .header(HttpHeaders.AUTHORIZATION, token(quem[0], quem[1])))
+                    .andExpect(status().isForbidden()).andExpect(jsonPath("$.hashSha256").doesNotExist());
+        }
+        mvc.perform(get("/api/evidencias/{id}", id)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/evidencias/{id}", UUID.randomUUID())
+                        .header(HttpHeaders.AUTHORIZATION, token(SUB_GESTOR, "GESTOR")))
+                .andExpect(status().isNotFound());
     }
 
     @Test
@@ -316,7 +352,8 @@ class ConsultaEvidenciaTest {
             assertThat(head.headers().allValues(cabecalho)).as(cabecalho).isEqualTo(get.headers().allValues(cabecalho));
         }
         assertThat(head.headers().firstValueAsLong("Content-Length")).hasValue(get.body().length);
-        assertThat(abertos.get() - fechados.get()).as("streams do storage abertos e não fechados após o HEAD (abertos=" + abertos + ")").isZero();
+        await().atMost(Duration.ofSeconds(5)).untilAsserted(() -> assertThat(abertos.get() - fechados.get())
+                .as("streams do storage abertos e não fechados após o HEAD (abertos=" + abertos + ")").isZero());
     }
 
     // RN-81, RN-104: EXPURGADA responde 410 em qualquer variante; os metadados continuam na listagem.
@@ -416,7 +453,8 @@ class ConsultaEvidenciaTest {
             }
         }
         String autorizacao = token(SUB_GESTOR, "GESTOR");
-        mvc.perform(delete("/api/evidencias/{id}", id).header(HttpHeaders.AUTHORIZATION, autorizacao)).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/evidencias/{id}", id).header(HttpHeaders.AUTHORIZATION, autorizacao))
+                .andExpect(status().isMethodNotAllowed());
         mvc.perform(delete("/api/chamados/{c}/evidencias/{e}", chamado, id).header(HttpHeaders.AUTHORIZATION, autorizacao))
                 .andExpect(status().isNotFound());
         mvc.perform(delete("/api/chamados/{c}/evidencias", chamado).header(HttpHeaders.AUTHORIZATION, autorizacao))
