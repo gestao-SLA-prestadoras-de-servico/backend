@@ -434,6 +434,52 @@ para iniciar um ciclo no horário de teste e acompanhe o log da etapa `outbox`.
 | 7K.4 | Prepare uma evidência com original e derivados em chamado cancelado há 181 dias e outra em chamado resolvido há um ano. Aguarde o ciclo.  | O prefixo da primeira fica vazio no MinIO. A consulta mantém os metadados e o conteúdo responde 410. A auditoria registra `EXPIRACAO_RETENCAO`. A segunda permanece disponível. |
 | 7K.5 | Em bucket descartável, prepare órfãos com 25 e 23 horas e um objeto antigo no prefixo de uma evidência em processamento. Aguarde o ciclo. | Só o órfão de 25 horas é removido. A etapa `orfaos` conta a remoção.                                                                                                            |
 
+## 7N. Relatório de cumprimento de SLA ([relatório - 01])
+
+O relatório lê somente `apuracao_sla` e filtra por `congelada_em`, com início e fim inclusivos. `clienteId` é o `cliente.id`; `tecnicoSub` é o `usuario.sub` (o mesmo valor de `chamado.tecnico_sub`). A quebra por técnico exclui o relógio `RESPOSTA`. Use o token de GESTOR da seção 0.
+
+No psql, insira a massa abaixo. A tabela é imutável por trigger: para limpar, recrie o ambiente com `make run-dev-down`.
+
+```sql
+INSERT INTO cliente (id, created_at, updated_at, razao_social, email_contato, logradouro, numero, bairro, cidade, uf, cep, ativo, version)
+VALUES
+ ('11111111-1111-1111-1111-111111111111', now(), now(), 'Cliente A', 'a@a.com', 'Rua A', '1', 'Centro', 'Fortaleza', 'CE', '60000000', true, 0),
+ ('22222222-2222-2222-2222-222222222222', now(), now(), 'Cliente B', 'b@b.com', 'Rua B', '2', 'Centro', 'Fortaleza', 'CE', '60000001', true, 0);
+
+INSERT INTO contrato (id, created_at, updated_at, cliente_id, codigo, inicio_vigencia, fim_vigencia, politica_id)
+VALUES
+ ('33333333-3333-3333-3333-333333333333', now(), now(), '11111111-1111-1111-1111-111111111111', 'CT-A', '2000-01-01', '2100-12-31', '0199a000-0000-7000-8000-00000000c001'),
+ ('44444444-4444-4444-4444-444444444444', now(), now(), '22222222-2222-2222-2222-222222222222', 'CT-B', '2000-01-01', '2100-12-31', '0199a000-0000-7000-8000-00000000c001');
+
+INSERT INTO chamado (id, created_at, updated_at, contrato_id, cliente_id, politica_versao_id, prioridade_padrao, titulo, descricao, local, estado, tecnico_sub, aberto_em, version)
+VALUES
+ ('55555555-5555-5555-5555-555555555555', now(), now(), '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', '0199a000-0000-7000-8000-00000000c002', 'NORMAL', 'Chamado A1', 'Teste', 'Sala 1', 'ENCERRADO', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', now(), 0),
+ ('66666666-6666-6666-6666-666666666666', now(), now(), '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', '0199a000-0000-7000-8000-00000000c002', 'NORMAL', 'Chamado A2', 'Teste', 'Sala 1', 'ENCERRADO', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', now(), 0),
+ ('77777777-7777-7777-7777-777777777777', now(), now(), '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', '0199a000-0000-7000-8000-00000000c002', 'NORMAL', 'Chamado A3', 'Teste', 'Sala 1', 'ENCERRADO', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', now(), 0),
+ ('88888888-8888-8888-8888-888888888888', now(), now(), '44444444-4444-4444-4444-444444444444', '22222222-2222-2222-2222-222222222222', '0199a000-0000-7000-8000-00000000c002', 'NORMAL', 'Chamado B1', 'Teste', 'Sala 2', 'ENCERRADO', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', now(), 0),
+ ('12121212-1212-1212-1212-121212121212', now(), now(), '33333333-3333-3333-3333-333333333333', '11111111-1111-1111-1111-111111111111', '0199a000-0000-7000-8000-00000000c002', 'NORMAL', 'Chamado A-B', 'Teste', 'Sala 1', 'ENCERRADO', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', now(), 0);
+
+INSERT INTO apuracao_sla (id, chamado_id, tipo, cliente_id, prioridade, tecnico_sub, prazo_minutos, vence_em, cumprido_em, violado_em, resultado, violou_em_ciclo_anterior, congelada_em)
+VALUES
+ ('99999999-9999-9999-9999-999999999991', '55555555-5555-5555-5555-555555555555', 'RESPOSTA',  '11111111-1111-1111-1111-111111111111', 'NORMAL', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 60, '2026-11-18T11:00:00Z', '2026-11-18T10:30:00Z', NULL, 'CUMPRIDO', false, '2026-11-18T12:00:00Z'),
+ ('99999999-9999-9999-9999-999999999992', '66666666-6666-6666-6666-666666666666', 'CAMPO',     '11111111-1111-1111-1111-111111111111', 'NORMAL', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 60, '2026-11-18T11:00:00Z', '2026-11-18T10:45:00Z', NULL, 'CUMPRIDO', false, '2026-11-18T12:00:00Z'),
+ ('99999999-9999-9999-9999-999999999993', '77777777-7777-7777-7777-777777777777', 'RESOLUCAO', '11111111-1111-1111-1111-111111111111', 'NORMAL', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 60, '2026-11-18T11:00:00Z', NULL, '2026-11-18T11:30:00Z', 'VIOLADO', false, '2026-11-18T12:00:00Z'),
+ ('99999999-9999-9999-9999-999999999994', '88888888-8888-8888-8888-888888888888', 'RESPOSTA',  '22222222-2222-2222-2222-222222222222', 'NORMAL', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 60, '2026-11-18T11:00:00Z', NULL, '2026-11-18T11:30:00Z', 'VIOLADO', false, '2026-11-18T12:00:00Z'),
+ ('99999999-9999-9999-9999-999999999995', '12121212-1212-1212-1212-121212121212', 'CAMPO',     '11111111-1111-1111-1111-111111111111', 'NORMAL', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 60, '2026-11-18T11:00:00Z', '2026-11-18T10:50:00Z', NULL, 'CUMPRIDO', false, '2026-11-18T12:00:00Z');
+```
+
+Período de todas as chamadas: `inicio=2026-11-18T00:00:00Z&fim=2026-11-18T23:59:59Z`.
+
+| #    | Passo                                                                                                      | Resultado esperado                                                                                                                                              |
+| ---- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7N.1 | `GET /api/relatorios/sla` com período sem dados (`2020-01-01T00:00:00Z` a `2020-01-02T00:00:00Z`)           | `200`, listas vazias e `mensagemSemResultados` preenchida                                                                                                        |
+| 7N.2 | `GET` sem filtros, no período da massa                                                                     | `geral`: `RESPOSTA` 1/1 50,00; `CAMPO` 2/0 100,00; `RESOLUCAO` 0/1 0,00. `porCliente`: A com 3 relógios e B com `RESPOSTA`. `porTecnico`: A com `CAMPO` e `RESOLUCAO`; B com `CAMPO` |
+| 7N.3 | Acrescente `clienteId=11111111-1111-1111-1111-111111111111`                                                 | `porCliente` só com A; `porTecnico` continua com A e B (o filtro de cliente não elimina o técnico B)                                                            |
+| 7N.4 | Acrescente `tecnicoSub=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb`                                                | `geral`: `RESPOSTA` 0/1 e `CAMPO` 1/0; `porCliente` com A (`CAMPO`) e B (`RESPOSTA`); `porTecnico` só com B (`CAMPO`, sem `RESPOSTA`)                             |
+| 7N.5 | Combine `clienteId=22222222-2222-2222-2222-222222222222&tecnicoSub=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`   | `200` com listas vazias e `mensagemSemResultados`                                                                                                                |
+| 7N.6 | Inverta as datas (`inicio` depois de `fim`)                                                                | `400`                                                                                                                                                           |
+| 7N.7 | Chame sem token e depois com token de `TECNICO`/`CLIENTE`                                                   | `401` e `403`, respectivamente                                                                                                                                  |
+
 ## 8. Desfecho
 
 | #   | Passo                                                       | Resultado esperado                                            |
