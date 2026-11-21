@@ -1694,6 +1694,70 @@
         "tags" : [ "Cadastro" ]
       }
     },
+    "/api/relatorios/sla" : {
+      "get" : {
+        "operationId" : "sla",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "inicio",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "in" : "query",
+          "name" : "fim",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }, {
+          "in" : "query",
+          "name" : "clienteId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "tecnicoSub",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RelatorioSlaResposta"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "$ref" : "#/components/responses/Validacao"
+          },
+          "401" : {
+            "$ref" : "#/components/responses/NaoAutenticado"
+          },
+          "403" : {
+            "$ref" : "#/components/responses/AcessoNegado"
+          },
+          "500" : {
+            "$ref" : "#/components/responses/ErroInterno"
+          }
+        },
+        "summary" : "Consultar relatório gerencial de cumprimento de SLA",
+        "tags" : [ "Relatórios" ]
+      }
+    },
     "/api/tecnicos" : {
       "get" : {
         "description" : "Somente GESTOR. Paginado (20 por página, máximo 100), para escolher o técnico na atribuição e na inativação. Sem `ativos`, lista os ativos.",
@@ -2860,6 +2924,36 @@
           }
         }
       },
+      "GrupoCliente" : {
+        "type" : "object",
+        "properties" : {
+          "clienteId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "relogios" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelogioMetricas"
+            }
+          }
+        }
+      },
+      "GrupoTecnico" : {
+        "type" : "object",
+        "properties" : {
+          "relogios" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelogioMetricas"
+            }
+          },
+          "tecnicoSub" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
       "Inativacao" : {
         "type" : "object",
         "properties" : {
@@ -2932,6 +3026,22 @@
           "id" : {
             "type" : "string",
             "format" : "uuid"
+          }
+        }
+      },
+      "Metricas" : {
+        "type" : "object",
+        "properties" : {
+          "cumpridos" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "percentual" : {
+            "type" : "number"
+          },
+          "violados" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -3207,6 +3317,32 @@
         },
         "required" : [ "justificativa", "version" ]
       },
+      "RelatorioSlaResposta" : {
+        "type" : "object",
+        "properties" : {
+          "geral" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RelogioMetricas"
+            }
+          },
+          "mensagemSemResultados" : {
+            "type" : "string"
+          },
+          "porCliente" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GrupoCliente"
+            }
+          },
+          "porTecnico" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/GrupoTecnico"
+            }
+          }
+        }
+      },
       "Relogio" : {
         "type" : "object",
         "properties" : {
@@ -3236,6 +3372,17 @@
           },
           "violouEmCicloAnterior" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "RelogioMetricas" : {
+        "type" : "object",
+        "properties" : {
+          "metricas" : {
+            "$ref" : "#/components/schemas/Metricas"
+          },
+          "tipo" : {
+            "type" : "string"
           }
         }
       },
