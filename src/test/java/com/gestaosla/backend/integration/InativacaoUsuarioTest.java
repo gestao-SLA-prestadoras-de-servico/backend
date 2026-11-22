@@ -58,6 +58,10 @@ import com.gestaosla.backend.shared.api.Ator;
 import com.gestaosla.backend.shared.api.Papel;
 import com.jayway.jsonpath.JsonPath;
 
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** POST /api/usuarios/{id}/inativacao contra o Keycloak real. A porta dos chamados é simulada até a [chamado - 13]. */
 @Testcontainers
 @SpringBootTest
@@ -69,8 +73,12 @@ class InativacaoUsuarioTest {
     private static final String SEGREDO = "s3gredo-teste";
     private static final String GESTOR = token(SUB_GESTOR, "GESTOR");
 
+    private static final Logger log =
+    LoggerFactory.getLogger(TestcontainersConfiguration.class);
+
     @Container
     private static final GenericContainer<?> keycloak = new GenericContainer<>("quay.io/keycloak/keycloak:26.4")
+            .withLogConsumer(new Slf4jLogConsumer(log))
             .withCommand("start-dev", "--import-realm")
             .withEnv("KEYCLOAK_ADMIN_CLIENT_SECRET", SEGREDO)
             .withEnv("KEYCLOAK_GESTOR_PASSWORD", "gestor-teste")
@@ -81,7 +89,8 @@ class InativacaoUsuarioTest {
             .withFileSystemBind(new File("infra/keycloak/realm-flowsla.json").getAbsolutePath(),
                     "/opt/keycloak/data/import/realm-flowsla.json", BindMode.READ_ONLY)
             .withExposedPorts(8080)
-            .waitingFor(Wait.forHttp("/realms/flowsla/.well-known/openid-configuration").forStatusCode(200));
+            .waitingFor(Wait.forHttp("/realms/flowsla/.well-known/openid-configuration").forStatusCode(200))
+            .withStartupTimeout(Duration.ofMinutes(3));
 
     @DynamicPropertySource
     static void apontarParaKeycloak(DynamicPropertyRegistry registro) {
