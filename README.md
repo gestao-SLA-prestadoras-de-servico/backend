@@ -27,6 +27,7 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 | [AWS SDK for Java v2](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/home.html) | 2.59.1 (BOM da AWS; `s3` + `url-connection-client`; cliente do MinIO, ver evidencia-01) |
 | [TwelveMonkeys ImageIO](https://github.com/haraldk/TwelveMonkeys) | 3.15.3 (`imageio-jpeg` e `imageio-webp`; leitura de JPEG e WebP, ver evidencia-02) |
 | [metadata-extractor](https://github.com/drewnoakes/metadata-extractor) | 2.22.0 (orientação do EXIF, ver evidencia-02) |
+| [OpenPDF](https://github.com/LibrePDF/OpenPDF) | 3.0.5 (`openpdf` + `openpdf-fonts-extra`; exportação PDF do relatório, ver relatorio-02) |
 | [PostgreSQL](https://www.postgresql.org/docs/17/)                                                          | 17 (imagem Docker)                  |
 | [Maven](https://maven.apache.org/)                                                                         | -                                   |
 | [Testcontainers](https://java.testcontainers.org/)                                                         | ^2.0.5 (PostgreSQL + MinIO + JUnit Jupiter) |

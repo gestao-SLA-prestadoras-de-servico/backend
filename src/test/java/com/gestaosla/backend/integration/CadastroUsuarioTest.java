@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -46,6 +47,10 @@ import com.gestaosla.backend.identidade.api.KeycloakAdminClient;
 import com.gestaosla.backend.identidade.api.NovoUsuarioKeycloak;
 import com.jayway.jsonpath.JsonPath;
 
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** POST /api/usuarios contra o Keycloak real (realm-flowsla.json) e o Mailpit. */
 @Testcontainers
 @SpringBootTest
@@ -58,12 +63,16 @@ class CadastroUsuarioTest {
     private static final String GESTOR = token(SUB_GESTOR, "GESTOR");
     private static final Network rede = Network.newNetwork();
 
+    private static final Logger log =
+    LoggerFactory.getLogger(TestcontainersConfiguration.class);
+
     @Container
     private static final GenericContainer<?> mailpit = new GenericContainer<>("axllent/mailpit:v1.27")
             .withNetwork(rede).withNetworkAliases("mailpit").withExposedPorts(8025);
 
     @Container
     private static final GenericContainer<?> keycloak = new GenericContainer<>("quay.io/keycloak/keycloak:26.4")
+            .withLogConsumer(new Slf4jLogConsumer(log))
             .withNetwork(rede)
             .withCommand("start-dev", "--import-realm")
             .withEnv("KEYCLOAK_ADMIN_CLIENT_SECRET", SEGREDO)
@@ -76,6 +85,7 @@ class CadastroUsuarioTest {
                     "/opt/keycloak/data/import/realm-flowsla.json", BindMode.READ_ONLY)
             .withExposedPorts(8080)
             .waitingFor(Wait.forHttp("/realms/flowsla/.well-known/openid-configuration").forStatusCode(200))
+            .withStartupTimeout(Duration.ofMinutes(3))
             .dependsOn(mailpit);
 
     @DynamicPropertySource
