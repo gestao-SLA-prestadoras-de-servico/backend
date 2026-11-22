@@ -130,6 +130,17 @@
 			<artifactId>metadata-extractor</artifactId>
 			<version>${metadata-extractor.version}</version>
 		</dependency>
+		<!-- Exportação do relatório gerencial em PDF (relatorio-02). -->
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>3.0.5</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf-fonts-extra</artifactId>
+			<version>3.0.5</version>
+		</dependency>
 		<!-- AOP exigido pelas anotações @Retry do Resilience4j -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

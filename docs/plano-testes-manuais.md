@@ -1,6 +1,6 @@
 # Plano de testes manuais — o que já está implementado
 
-> Cobre: [plataforma - 06] OpenAPI, [autenticação - 01] a [autenticação - 04], [auditoria - 01] e [cadastro - 01]. Ambiente: **dev**. Tempo estimado: 40–60 min.
+> Cobre: [plataforma - 06] OpenAPI, [autenticação - 01] a [autenticação - 04], [auditoria - 01], [cadastro - 01] e [relatorio - 02]. Ambiente: **dev**. Tempo estimado: 40–60 min.
 >
 > Ferramentas: navegador (Swagger UI, console do Keycloak, Mailpit) e terminal (`curl`, `docker`). Os blocos marcados **Terminal** rodam na raiz do backend.
 
@@ -479,6 +479,17 @@ Período de todas as chamadas: `inicio=2026-11-18T00:00:00Z&fim=2026-11-18T23:59
 | 7N.5 | Combine `clienteId=22222222-2222-2222-2222-222222222222&tecnicoSub=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa`   | `200` com listas vazias e `mensagemSemResultados`                                                                                                                |
 | 7N.6 | Inverta as datas (`inicio` depois de `fim`)                                                                | `400`                                                                                                                                                           |
 | 7N.7 | Chame sem token e depois com token de `TECNICO`/`CLIENTE`                                                   | `401` e `403`, respectivamente                                                                                                                                  |
+
+### 7O. Exportar relatório gerencial ([relatorio - 02])
+
+Logado no Swagger como GESTOR, com a massa da seção 7N:
+
+| # | Passo | Resultado esperado |
+| --- | --- | --- |
+| 7O.1 | Chame `GET /api/relatorios/sla.csv` com `inicio=2026-11-18T00:00:00Z` e `fim=2026-11-18T23:59:59Z` | Download `relatorio-sla_2026-11-18_a_2026-11-18.csv`; `Content-Disposition: attachment`; abra no Excel e confira acentos, separador `;`, decimal com vírgula e nomes/UUIDs nas seções geral, cliente e técnico. |
+| 7O.2 | Repita com `GET /api/relatorios/sla.pdf` e os mesmos filtros | Download PDF A4 retrato com período, filtros, geração e três tabelas; cliente e técnico aparecem com nome e UUID; compare as métricas com 7N.2. |
+| 7O.3 | Repita as duas rotas com `clienteId` ou `tecnicoSub` da seção 7N | Exportações respeitam os filtros e apresentam os mesmos números que `/api/relatorios/sla`. |
+| 7O.4 | Inverta as datas e depois chame sem token | `400` para período inválido e `401` sem autenticação. |
 
 ## 8. Desfecho
 
