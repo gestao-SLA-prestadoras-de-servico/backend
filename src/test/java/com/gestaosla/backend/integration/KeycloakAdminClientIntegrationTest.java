@@ -56,6 +56,7 @@ class KeycloakAdminClientIntegrationTest {
             .withNetwork(rede)
             .withCommand("start-dev", "--import-realm")
             .withEnv("KEYCLOAK_ADMIN_CLIENT_SECRET", SEGREDO)
+            .withEnv("KEYCLOAK_METRICS_CLIENT_SECRET", "metricas-teste")
             .withEnv("KEYCLOAK_GESTOR_PASSWORD", "gestor-teste")
             .withEnv("FRONTEND_URL", "http://localhost:5173")
             .withEnv("SWAGGER_URL", "http://localhost:8080")

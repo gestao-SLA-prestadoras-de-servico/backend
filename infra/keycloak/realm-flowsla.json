@@ -12,7 +12,10 @@
       { "name": "CLIENTE" },
       { "name": "TECNICO" },
       { "name": "GESTOR" }
-    ]
+    ],
+    "client": {
+      "flowsla-metrics": [{ "name": "metrics.read" }]
+    }
   },
   "clients": [
     {
@@ -91,6 +94,48 @@
       ]
     },
     {
+      "clientId": "flowsla-metrics",
+      "name": "Coleta de métricas do backend",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${KEYCLOAK_METRICS_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [],
+      "optionalClientScopes": [],
+      "protocolMappers": [
+        {
+          "name": "audience-app-principal",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "app-principal",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        },
+        {
+          "name": "metrics-read",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "flowsla-metrics",
+            "claim.name": "resource_access.flowsla-metrics.roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
       "clientId": "app-principal-admin",
       "name": "Admin API do app-principal",
       "enabled": true,
@@ -116,6 +161,14 @@
         { "type": "password", "value": "${KEYCLOAK_GESTOR_PASSWORD}", "temporary": false }
       ],
       "realmRoles": ["default-roles-flowsla", "GESTOR"]
+    },
+    {
+      "username": "service-account-flowsla-metrics",
+      "enabled": true,
+      "serviceAccountClientId": "flowsla-metrics",
+      "clientRoles": {
+        "flowsla-metrics": ["metrics.read"]
+      }
     },
     {
       "username": "service-account-app-principal-admin",
