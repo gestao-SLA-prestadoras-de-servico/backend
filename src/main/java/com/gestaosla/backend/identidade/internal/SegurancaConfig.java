@@ -1,16 +1,21 @@
 package com.gestaosla.backend.identidade.internal;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -30,6 +35,39 @@ import com.gestaosla.backend.shared.api.RegrasAcesso;
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
 class SegurancaConfig {
+
+    @Bean
+    @Order(1)
+    SecurityFilterChain metricas(HttpSecurity http,
+            @Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) throws Exception {
+        // Conta de serviço não é usuário de negócio: não passa pelo UsuarioCorrenteConverter nem consulta usuario.
+        JwtAuthenticationConverter conversor = new JwtAuthenticationConverter();
+        conversor.setJwtGrantedAuthoritiesConverter(jwt -> {
+            if (!(jwt.getClaim("resource_access") instanceof Map<?, ?> clientes)
+                    || !(clientes.get("flowsla-metrics") instanceof Map<?, ?> cliente)
+                    || !(cliente.get("roles") instanceof Collection<?> papeis)
+                    || !papeis.contains("metrics.read")) {
+                return List.of();
+            }
+            return List.of(new SimpleGrantedAuthority("metrics.read"));
+        });
+        AuthenticationEntryPoint naoAutenticado = (request, response, ex) -> resolver.resolveException(request, response, null, ex);
+        AccessDeniedHandler acessoNegado = (request, response, ex) -> resolver.resolveException(request, response, null, ex);
+        return http
+                .securityMatcher("/actuator/prometheus")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .requestCache(cache -> cache.disable())
+                .authorizeHttpRequests(rotas -> rotas.anyRequest().hasAuthority("metrics.read"))
+                .oauth2ResourceServer(oauth -> oauth
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(conversor))
+                        .authenticationEntryPoint(naoAutenticado)
+                        .accessDeniedHandler(acessoNegado))
+                .exceptionHandling(erros -> erros
+                        .authenticationEntryPoint(naoAutenticado)
+                        .accessDeniedHandler(acessoNegado))
+                .build();
+    }
 
     @Bean
     SecurityFilterChain api(HttpSecurity http, UsuarioCorrenteConverter usuarioCorrente, List<RegrasAcesso> regrasDosModulos,

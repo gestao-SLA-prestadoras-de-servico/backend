@@ -50,7 +50,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.web.FilterChainProxy;
+import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -469,8 +469,7 @@ class ConsultaEvidenciaTest {
     // não se reproduz de forma determinística; o teste confere a configuração que a impede.
     @Test
     void shouldWriteSecurityHeadersEagerlySoTheStreamingThreadDoesNotRace() {
-        HeaderWriterFilter filtro = contexto.getBean(FilterChainProxy.class).getFilterChains().stream()
-                .flatMap(cadeia -> cadeia.getFilters().stream())
+        HeaderWriterFilter filtro = contexto.getBean("api", SecurityFilterChain.class).getFilters().stream()
                 .filter(HeaderWriterFilter.class::isInstance).map(HeaderWriterFilter.class::cast)
                 .findFirst().orElseThrow();
         assertThat(ReflectionTestUtils.getField(filtro, "shouldWriteHeadersEagerly")).isEqualTo(true);

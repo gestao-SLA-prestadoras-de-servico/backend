@@ -71,6 +71,10 @@ public final class TokenTeste {
                 .expirationTime(new Date(agora + 300_000))
                 .claim("realm_access", Map.of("roles", List.of(papeis)))
                 .build();
+        return token(chave, claims);
+    }
+
+    public static String token(RSAPrivateKey chave, JWTClaimsSet claims) {
         try {
             SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claims);
             jwt.sign(new RSASSASigner(chave));
