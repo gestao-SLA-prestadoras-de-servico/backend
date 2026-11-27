@@ -291,6 +291,6 @@ Para testar à mão, ver as seções 7B e 7C de `docs/plano-testes-manuais.md`.
 ## 8. Limites conhecidos
 
 - **Ainda não há produtor de notificação:** os contratos e a outbox estão prontos, mas os eventos nascem nas tasks de chamado, SLA e encerramento automático.
-- **`/actuator/prometheus` exige token:** a `SegurancaConfig` libera só `/actuator/health/**`, então um coletor Prometheus sem token não lê as métricas da outbox. A liberação está pendente de decisão.
+- **`/actuator/prometheus` exige conta técnica:** use `client_credentials` de `flowsla-metrics`, com a role de client `metrics.read`. Token de gestor não autoriza o scrape. Configuração e atualização sem apagar volumes estão na [observabilidade-01](../observabilidade/observabilidade-01-autenticar-scrape-backend.md); a instalação do coletor fica para a etapa seguinte.
 - **Instância única:** o publicador não tem trava distribuída (RN-116). Rodar duas instâncias do app-principal publicaria eventos em dobro; isso exigiria uma trava (ex.: ShedLock).
 - **Um evento travado segura o próprio destino** (seção 7): os eventos seguintes com a mesma exchange e routing key esperam, para manter a ordem dentro da fila. Os outros destinos não são afetados.

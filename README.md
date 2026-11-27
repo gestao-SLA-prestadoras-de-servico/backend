@@ -61,7 +61,11 @@ O `ModularidadeTest` (`make unit-test`) usa o Spring Modulith (`ApplicationModul
 
 ## Autenticação e autorização
 
-Toda rota, exceto `/actuator/health`, exige `Authorization: Bearer <token do Keycloak>`. O token é validado quanto a assinatura, `iss` e `aud` (`app-principal`). Usuário inativo ou sem registro local recebe 401. O papel vem **sempre** do token (`realm_access.roles` → `ROLE_CLIENTE`/`ROLE_TECNICO`/`ROLE_GESTOR`), nunca da tabela `usuario` (RN-130). Config em `identidade.internal.SegurancaConfig` e `UsuarioCorrenteConverter`.
+As rotas protegidas exigem `Authorization: Bearer <token do Keycloak>`. Saúde e documentação habilitada em dev são públicas. O token é validado quanto a assinatura, validade, `iss` e `aud` (`app-principal`). Na API de negócio, usuário inativo ou sem registro local recebe 401. O papel vem **sempre** do token (`realm_access.roles` → `ROLE_CLIENTE`/`ROLE_TECNICO`/`ROLE_GESTOR`), nunca da tabela `usuario` (RN-130). Config em `identidade.internal.SegurancaConfig` e `UsuarioCorrenteConverter`.
+
+`/actuator/prometheus` usa uma cadeia stateless exclusiva, prioritária: exige `metrics.read` em `resource_access.flowsla-metrics.roles`, sem consultar `usuario`. A conta `flowsla-metrics` só usa `client_credentials`, recebe a audiência `app-principal` e não recebe papéis de negócio nem de administração. Sem token ou com JWT inválido/expirado: 401; JWT válido sem a permissão desse client: 403; autorizado: 200. Os erros mantêm o formato Problem Details. Token de gestor não permite scrape. A regra fica na cadeia por ser um endpoint do Actuator, sem controller próprio nem `@PreAuthorize`. O scrape interno usa `backend-app:8080/actuator/prometheus`; a publicação da API no host não muda.
+
+O segredo vem de `KEYCLOAK_METRICS_CLIENT_SECRET` em `.envs/.env.<ambiente>` (ver os três `.example`). Na primeira importação, o Keycloak resolve o placeholder no JSON. Em realms existentes, siga a [atualização sem apagar volumes](docs/tasks/observabilidade/observabilidade-01-autenticar-scrape-backend.md#atenção-ao-atualizar-um-ambiente-existente). Obtenção do token e verificações manuais estão na [seção 3A do roteiro](docs/plano-testes-manuais.md#3a-scrape-autenticado-do-backend-observabilidade---01). A instalação do Prometheus e a montagem do segredo como secret de Compose ficam para as próximas tarefas.
 
 Restringir um endpoint por papel tem **dois passos**, os dois obrigatórios:
 
@@ -281,12 +285,13 @@ Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam 
 | Client do frontend | `flowsla-frontend` (público, Authorization Code + PKCE S256) | redirect em `FRONTEND_URL/*`; o token sai com `aud` `app-principal` e `ms-notificacoes` e com `realm_access.roles` |
 | Client do Swagger UI | `flowsla-swagger` (público, PKCE S256) | redirect só em `SWAGGER_URL/swagger-ui/oauth2-redirect.html`; mesmos `aud` do frontend |
 | Conta de serviço | client `app-principal-admin`, segredo `KEYCLOAK_ADMIN_CLIENT_SECRET` | Admin API; só `manage-users`, `view-users` e `view-realm` |
+| Conta de métricas | client `flowsla-metrics`, segredo `KEYCLOAK_METRICS_CLIENT_SECRET` | somente `metrics.read` do próprio client; leitura de `/actuator/prometheus`, sem cadastro local |
 | E-mails do Keycloak | SMTP `SMTP_HOST:SMTP_PORT` (Mailpit) | ver em http://localhost:8025 |
 
 O backend valida o token em `KEYCLOAK_ISSUER_URI` (o `iss`) e busca as chaves em `KEYCLOAK_JWK_SET_URI`. `GET /api/usuarios/me` devolve o usuário do token. `GET /api/usuarios` e `GET /api/tecnicos` (só GESTOR) leem a cópia local do perfil: servem para consulta, nunca para autorizar (RN-130).
 
 > [!WARNING]
-> O realm só é importado se ainda não existir no banco do Keycloak. Depois de alterar o `realm-flowsla.json`, rode `make run-dev-down` (apaga os dados de dev) e suba de novo.
+> O realm só é importado se ainda não existir no banco do Keycloak. Alterar `realm-flowsla.json` e reiniciar não atualiza realms existentes. Inclua os recursos pelo console administrativo ou Admin API, preservando os dados; para `flowsla-metrics`, siga a [observabilidade-01](docs/tasks/observabilidade/observabilidade-01-autenticar-scrape-backend.md#atenção-ao-atualizar-um-ambiente-existente). Não use `make run-dev-down` para atualizar o realm: ele apaga os volumes de dev.
 
 > [!WARNING]
 > O `init.sql` só roda com o volume do PostgreSQL vazio. Se o ambiente já foi criado antes, rode `make run-dev-down` (apaga os dados de dev) antes de subir de novo.

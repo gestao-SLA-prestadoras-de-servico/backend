@@ -1,6 +1,6 @@
 # Plano de testes manuais — o que já está implementado
 
-> Cobre: [plataforma - 06] OpenAPI, [autenticação - 01] a [autenticação - 04], [auditoria - 01], [cadastro - 01] e [relatorio - 02]. Ambiente: **dev**. Tempo estimado: 40–60 min.
+> Cobre: [plataforma - 06] OpenAPI, [autenticação - 01] a [autenticação - 04], [auditoria - 01], [cadastro - 01], [relatorio - 02] e [observabilidade - 01]. Ambiente: **dev**. Tempo estimado: 40–60 min, mais a espera de expiração do token na seção 3A.
 >
 > Ferramentas: navegador (Swagger UI, console do Keycloak, Mailpit) e terminal (`curl`, `docker`). Os blocos marcados **Terminal** rodam na raiz do backend.
 
@@ -63,7 +63,7 @@ Anote os ids e `sub` que forem aparecendo:
 | #   | Passo                                                                                                                                                                                                                               | Resultado esperado                                                                                                                   |
 | --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | 2.1 | Console do Keycloak → realm **flowsla** → **Realm roles**                                                                                                                                                                           | `CLIENTE`, `TECNICO`, `GESTOR`                                                                                                       |
-| 2.2 | **Clients**                                                                                                                                                                                                                         | `flowsla-frontend`, `flowsla-swagger`, `app-principal-admin`                                                                         |
+| 2.2 | **Clients**                                                                                                                                                                                                                         | `flowsla-frontend`, `flowsla-swagger`, `app-principal-admin`, `flowsla-metrics`                                                                         |
 | 2.3 | **Users** → `gestor` → **Details**                                                                                                                                                                                                  | ID `0199a000-0000-7000-8000-000000000001`                                                                                            |
 | 2.4 | **Terminal:** `echo "$T" \| cut -d. -f2 \| python3 -c 'import sys,base64,json;p=sys.stdin.read().strip();print(json.dumps(json.loads(base64.urlsafe_b64decode(p+"="*(-len(p)%4))),indent=2))'` (não cole o token em sites externos) | `iss` `http://localhost:8081/realms/flowsla`; `aud` contém `app-principal`; `realm_access.roles` contém `GESTOR`; `sub` igual ao 2.3 |
 | 2.5 | No psql: `select sub, nome, email, perfil from usuario;`                                                                                                                                                                            | Uma linha: o gestor inicial, com o mesmo `sub`                                                                                       |
@@ -89,6 +89,53 @@ curl -i -X OPTIONS localhost:8080/api/clientes -H 'Origin: http://malicioso.exam
 | 3.3 | Primeiro: `200` com `Access-Control-Allow-Origin: http://localhost:5173`. Segundo: `403`, sem esse cabeçalho |
 
 O 403 por papel errado e o 401 de usuário inativo são testados na seção 7, com o técnico criado lá.
+
+## 3A. Scrape autenticado do backend ([observabilidade - 01])
+
+Execute esta seção em uma cópia isolada do projeto, com nome de projeto Compose, rede e portas exclusivos. As retiradas temporárias de permissão e audiência abaixo não devem ser feitas em produção. Para um realm existente, crie primeiro o client conforme a [task](tasks/observabilidade/observabilidade-01-autenticar-scrape-backend.md#atenção-ao-atualizar-um-ambiente-existente); não é necessário executar a preparação destrutiva da seção 0.
+
+No terminal, ajuste os endereços para a stack isolada (abaixo estão as portas padrão de dev). Informe o segredo definido em `KEYCLOAK_METRICS_CLIENT_SECRET` no arquivo de ambiente dessa stack. O token fica na variável `TM`; não o imprima nem o inclua nas evidências.
+
+```bash
+URL_TOKEN_METRICAS=http://localhost:8081/realms/flowsla/protocol/openid-connect/token
+URL_BACKEND_METRICAS=http://localhost:8080
+read -r -s -p 'Segredo de flowsla-metrics: ' SEGREDO_METRICAS
+printf '\n'
+obter_token_metricas() {
+  curl --fail-with-body -sS "$URL_TOKEN_METRICAS" \
+    --data-urlencode grant_type=client_credentials \
+    --data-urlencode client_id=flowsla-metrics \
+    --data-urlencode "client_secret=$SEGREDO_METRICAS" |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["access_token"])'
+}
+TM="$(obter_token_metricas)"
+
+# Sem token: 401. Autorizado: 200, conteúdo text/plain com outbox_*.
+curl -i "$URL_BACKEND_METRICAS/actuator/prometheus"
+curl -i "$URL_BACKEND_METRICAS/actuator/prometheus" -H "Authorization: Bearer $TM"
+# O mesmo token não acessa a API de negócio: 401, usuário sem cadastro local.
+curl -i "$URL_BACKEND_METRICAS/api/usuarios/me" -H "Authorization: Bearer $TM"
+curl -i "$URL_BACKEND_METRICAS/api/clientes" -H "Authorization: Bearer $TM"
+# Token adulterado: 401.
+curl -i "$URL_BACKEND_METRICAS/actuator/prometheus" -H "Authorization: Bearer ${TM%????}AAAA"
+```
+
+| # | Ação | Resultado esperado |
+| --- | --- | --- |
+| 3A.1 | **Clients → flowsla-metrics**: conferir autenticação do client, Service accounts roles, Roles e Client scopes. | Client confidencial, só service account; role própria `metrics.read`; nenhum papel de negócio ou `realm-management`; Full scope allowed desligado e sem scopes padrão/opcionais. |
+| 3A.2 | Conferir localmente o payload do token, sem gravar o token completo: `printf '%s' "$TM" \| python3 -c 'import sys,base64,json;t=sys.stdin.read().split(".")[1];d=json.loads(base64.urlsafe_b64decode(t+"="*(-len(t)%4)));print({k:d.get(k) for k in ("iss","aud","resource_access","realm_access")})'`. | `iss` igual ao `KEYCLOAK_ISSUER_URI` do backend; `aud` contém `app-principal`; `resource_access.flowsla-metrics.roles` contém somente `metrics.read`; sem roles administrativas/de negócio. Em dev, conferir também token obtido por `http://keycloak:8080` a partir da rede Docker: o `iss` continua sendo o público configurado. |
+| 3A.3 | Executar as cinco consultas do bloco acima. | Sem token/adulterado: 401 `NAO_AUTENTICADO`; autorizado: 200 com `outbox_eventos_pendentes` e `outbox_pendente_mais_antigo_idade_seconds`; API: 401. Erros em `application/problem+json`. |
+| 3A.4 | Em **Service accounts roles**, retirar `metrics.read`, obter **novo** token e consultar métricas. Restaurar a atribuição e emitir outro token ao terminar. | Sem role: 403 `ACESSO_NEGADO`; depois da restauração: 200. Token antigo conserva a role até expirar. |
+| 3A.5 | Com token válido de gestor (`T`), consultar o endpoint de métricas. | 403 `ACESSO_NEGADO`; papel de negócio não concede a permissão técnica. |
+| 3A.6 | Retirar temporariamente o mapper `audience-app-principal`, emitir novo token e consultar. Restaurar o mapper antes de continuar. | Token sem audiência aceita: 401. Novo token depois de restaurar: 200. |
+| 3A.7 | Guardar um token autorizado e esperar seu `exp` mais 65 segundos, para ultrapassar a tolerância de relógio. Consultar métricas; depois executar `TM="$(obter_token_metricas)"` e repetir. | Token expirado: 401; token novo: 200. A renovação automática do Prometheus será validada na tarefa 3. |
+| 3A.8 | Em um realm temporário de teste, criar client de serviço com role e audience mapper equivalentes; obter token desse outro realm e consultar o backend. | 401 para token de outro emissor. Não modificar o emissor aceito pelo backend para esse teste. |
+| 3A.9 | Usar o token de métricas em uma operação da Admin API, por exemplo consultar `/admin/realms/flowsla/clients` no Keycloak. | 403; a conta não administra o realm. |
+| 3A.10 | Aplicar a configuração pelo console em um realm já inicializado, anotando antes e depois os IDs dos clients e usuários existentes. | Recursos anteriores preservados, métricas 200; sem excluir realm, usuários ou volumes. |
+
+Os gauges podem variar por atividade normal. Registre status, nomes de métricas e horário, sem segredo ou token. Restaure roles/mappers alterados antes de seguir. Ao concluir todas as consultas de métricas do roteiro, execute `unset TM SEGREDO_METRICAS`.
+
+Nas seções 7H e 7L, renove `TM` com `obter_token_metricas` antes de consultar as métricas se o token tiver expirado.
 
 ## 4. Cadastro de clientes ([cadastro - 01])
 
@@ -263,7 +310,7 @@ values (gen_random_uuid(), '<ID>', 'ATRIBUICAO', 'notificacoes', 'interna', '{"e
 | 7C.4 | Inserir um evento com routing key `inexistente` e, depois, um com routing key `interna` ([outbox - 05]) | O primeiro fica pendente com `ultimo_erro` "Sem fila de destino" e `tentativas` crescendo a cada ciclo; o `interna` é publicado mesmo assim. Apague o primeiro (`delete from outbox_eventos where evento_id = '<ID>'`) |
 | 7C.5 | Esvaziar as filas usadas (como no 7B.5)                                                                 | Filas vazias                                                                                                                                                                                                           |
 
-As métricas `outbox_*` estão em `/actuator/prometheus`, que hoje exige token.
+As métricas `outbox_*` estão em `/actuator/prometheus`, que exige o token `TM` da conta de métricas (seção 3A). Token de gestor recebe 403.
 
 ## 7D. Chamados: abertura, consulta e prioridade ([chamado - 03] a [chamado - 05])
 
@@ -353,7 +400,7 @@ Segue o 7G.1 (evidência **EV** enviada; use uma foto grande, por exemplo 4000x3
 | 7H.1 | Em até ~10 s: `select estado, chave_miniatura, chave_visualizacao from evidencia where id = '{EV}';`                                                                                                                                                                                                                                          | `DISPONIVEL` e as chaves `.../miniatura.jpg` e `.../visualizacao.jpg`                                                                                                                                                                                                                                                                                                             |
 | 7H.2 | No console do MinIO, bucket `evidencias`, pasta de EV: baixe os dois derivados e rode `python3 -c "from PIL import Image; print(Image.open('miniatura.jpg').size, Image.open('visualizacao.jpg').size)"`                                                                                                                                      | Lado maior 320 e 1280, mesma proporção; o `original.jpg` com o mesmo `sha256sum` de antes                                                                                                                                                                                                                                                                                         |
 | 7H.3 | No console do RabbitMQ (http://localhost:15672), fila `evidencias.processamento`                                                                                                                                                                                                                                                              | Vazia (0 ready, 0 unacked)                                                                                                                                                                                                                                                                                                                                                        |
-| 7H.4 | `curl -s -H "Authorization: Bearer $TG" http://localhost:8080/actuator/prometheus \| grep '^evidencias'` (token de gestor)                                                                                                                                                                                                                    | Uma linha por estado, `DISPONIVEL` com a contagem certa                                                                                                                                                                                                                                                                                                                           |
+| 7H.4 | `curl -s -H "Authorization: Bearer $TM" http://localhost:8080/actuator/prometheus \| grep '^evidencias'` (token de métricas da seção 3A)                                                                                                                                                                                                                    | Uma linha por estado, `DISPONIVEL` com a contagem certa                                                                                                                                                                                                                                                                                                                           |
 | 7H.5 | Falha: envie outra foto (**EV2**, 202) e, **logo em seguida**, antes de o publicador rodar, pare o MinIO (`docker stop infra-minio-1`); espere ~25 s, veja o log da aplicação e `select estado from evidencia where id = '{EV2}'`. (Parar o MinIO **antes** de enviar dá 503 `SERVICO_INDISPONIVEL` no envio, e nada chega ao processamento.) | 3 tentativas no log (1 s e 2 s de espera), depois `FALHA`; no console do RabbitMQ a `evidencias.processamento.dlq` tem 1 mensagem a mais (as estatísticas atualizam com alguns segundos de atraso) e a principal está vazia. Religue o MinIO (`docker start infra-minio-1`) e espere uns 10 s: a JVM guarda por esse tempo a falha de DNS de `minio` e responde 503 enquanto isso |
 | 7H.6 | `select estado from chamado where id = '{CH}'` e o atendimento                                                                                                                                                                                                                                                                                | Inalterados pela falha (RN-89)                                                                                                                                                                                                                                                                                                                                                    |
 
@@ -417,7 +464,7 @@ As rotinas rodam sozinhas: a de violação a cada 15 minutos (:00, :15, :30 e :4
 | 7L.1 | `update relogio_sla set vence_em = now() - interval '1 minute' where chamado_id = '{CH3}' and tipo = 'RESOLUCAO' and ativo;` e esperar a próxima passada de 15 minutos                                     | `violado_em` igual ao `vence_em` gravado; `GET /api/chamados/{CH3}` mostra `comViolacao: true` e o relógio RESOLUCAO `VIOLADO`                                                             |
 | 7L.2 | `select routing_key, payload->>'relogio', payload->'destinatarios' from outbox_eventos where tipo = 'VIOLACAO' and payload->'chamado'->>'id' = '{CH3}';` e o histórico `GET /api/chamados/{CH3}/historico` | Um evento `interna`, `RESOLUCAO`, com os gestores ativos e UT2; no histórico, `VIOLACAO_SLA` sem ator                                                                                      |
 | 7L.3 | Esperar mais uma passada                                                                                                                                                                                   | Nenhum evento `VIOLACAO` novo para CH3                                                                                                                                                     |
-| 7L.4 | `curl -s -H "Authorization: Bearer $TG" http://localhost:8080/actuator/prometheus \| grep '^sla_violacoes'`                                                                                                | `sla_violacoes_total{relogio="RESOLUCAO",...}` com pelo menos 1                                                                                                                            |
+| 7L.4 | `curl -s -H "Authorization: Bearer $TM" http://localhost:8080/actuator/prometheus \| grep '^sla_violacoes'`                                                                                                | `sla_violacoes_total{relogio="RESOLUCAO",...}` com pelo menos 1                                                                                                                            |
 | 7L.5 | `update chamado set resolvido_em = now() - interval '7 days' where id = '{CHR}';` e esperar a próxima hora cheia                                                                                           | `aviso_enviado_em` preenchido; um `AVISO_ENCERRAMENTO` (`email`) para o e-mail de contato da empresa, com `encerramentoPrevistoEm` 1 dia útil depois do aviso; CHR segue RESOLVIDO         |
 | 7L.6 | `update chamado set aviso_enviado_em = now() - interval '7 days' where id = '{CHR}';` e esperar a próxima hora cheia                                                                                       | CHR `ENCERRADO`, com `estadoFinalEm`; `GET /api/chamados/{CHR}/sla` → `apurado: true`; auditoria `VALIDACAO_AUTOMATICA` e `MUDANCA_ESTADO` com `ator_sub` nulo; um só `AVISO_ENCERRAMENTO` |
 
