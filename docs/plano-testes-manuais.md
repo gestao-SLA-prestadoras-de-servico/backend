@@ -1,6 +1,6 @@
 # Plano de testes manuais — o que já está implementado
 
-> Cobre: [plataforma - 06] OpenAPI, [autenticação - 01] a [autenticação - 04], [auditoria - 01], [cadastro - 01], [relatorio - 02] e [observabilidade - 01]. Ambiente: **dev**. Tempo estimado: 40–60 min, mais a espera de expiração do token na seção 3A.
+> Cobre: [plataforma - 06] OpenAPI, [autenticação - 01] a [autenticação - 04], [auditoria - 01], [cadastro - 01], [relatorio - 02] e [observabilidade - 01] a [observabilidade - 02]. Ambiente: **dev**. Tempo estimado: 40–60 min, mais a espera de expiração do token na seção 3A e o download inicial das imagens na seção 3B.
 >
 > Ferramentas: navegador (Swagger UI, console do Keycloak, Mailpit) e terminal (`curl`, `docker`). Os blocos marcados **Terminal** rodam na raiz do backend.
 
@@ -136,6 +136,60 @@ curl -i "$URL_BACKEND_METRICAS/actuator/prometheus" -H "Authorization: Bearer ${
 Os gauges podem variar por atividade normal. Registre status, nomes de métricas e horário, sem segredo ou token. Restaure roles/mappers alterados antes de seguir. Ao concluir todas as consultas de métricas do roteiro, execute `unset TM SEGREDO_METRICAS`.
 
 Nas seções 7H e 7L, renove `TM` com `obter_token_metricas` antes de consultar as métricas se o token tiver expirado.
+
+## 3B. Prometheus e Grafana no Compose ([observabilidade - 02])
+
+Esta seção começa na raiz do backend e usa uma cópia da infraestrutura em `/tmp`. Escolha duas portas livres no host, `29090` e `23000` no exemplo. Use uma nova sessão Bash para os comandos abaixo. A primeira subida pode levar vários minutos enquanto o Grafana inicializa o banco no volume novo.
+
+```bash
+copia_obs=$(mktemp -d /tmp/flowsla-observabilidade-XXXXXX)
+sufixo_obs=${copia_obs##*-}
+projeto_obs=flowsla-observabilidade-${sufixo_obs,,}
+mkdir "$copia_obs/.envs"
+cp -a infra "$copia_obs/"
+cp .envs/.env.dev.example "$copia_obs/.envs/.env.dev"
+cd "$copia_obs"
+chmod 600 .envs/.env.dev
+```
+
+Edite `.envs/.env.dev` da cópia. Em `ENVIRONMENT`, coloque o valor de `projeto_obs` (`printf '%s\n' "$projeto_obs"`), para que a rede também seja exclusiva. Defina `PROMETHEUS_LOCAL_PORT=29090` e `GRAFANA_LOCAL_PORT=23000`. Use valores descartáveis próprios para `KEYCLOAK_METRICS_CLIENT_SECRET` e `GRAFANA_ADMIN_PASSWORD`. Use as credenciais desse arquivo no login.
+
+```bash
+compose_obs() {
+  env -u ENVIRONMENT -u PROMETHEUS_LOCAL_PORT -u GRAFANA_LOCAL_PORT \
+    -u GRAFANA_ADMIN_USER -u GRAFANA_ADMIN_PASSWORD -u KEYCLOAK_METRICS_CLIENT_SECRET \
+    docker compose -p "$projeto_obs" --env-file .envs/.env.dev \
+    -f infra/docker-compose.yml -f infra/docker-compose.dev.yml "$@"
+}
+compose_obs up -d --wait prometheus grafana
+compose_obs ps
+```
+
+| # | Ação | Resultado esperado |
+| --- | --- | --- |
+| 3B.1 | Abra `http://127.0.0.1:29090/-/ready` e `http://127.0.0.1:23000/api/health`. Confira o `ps`. | Os dois containers estão saudáveis. O Prometheus está pronto e o Grafana retorna `database: ok`. |
+| 3B.2 | Abra `http://127.0.0.1:23000` e entre com a conta administrativa. Em **Connections → Data sources**, abra **Prometheus**. | Login aceito. O datasource é provisionado, tem UID `prometheus`, usa `http://prometheus:9090` e seus campos ficam bloqueados para edição. |
+| 3B.3 | Em **Explore**, selecione **Prometheus**, execute `up{job="prometheus"}` no modo instantâneo e anote a hora da consulta. Aguarde até o primeiro ciclo de 15 s, se necessário. | Valor `1`. |
+| 3B.4 | Confira os arquivos e recursos com os comandos abaixo. | Cada serviço lê somente seu próprio arquivo de secret. O projeto tem somente dois containers, rede exclusiva, volumes `prometheus-dev` e `grafana-dev` prefixados pelo projeto e portas em `127.0.0.1`. |
+| 3B.5 | Em **Profile → Preferences**, salve um tema diferente do atual. Recrie os containers com o comando abaixo e confira a preferência e o login. Em **Explore**, selecione um intervalo absoluto que inclua a hora anotada antes da recriação e consulte `up{job="prometheus"}` em modo **Range**. | A preferência salva e a série com amostras anteriores à recriação continuam disponíveis nos mesmos volumes. |
+
+```bash
+compose_obs exec -T prometheus sh -ec '
+  test -r /run/secrets/metrics_oauth_client_secret
+  test -s /run/secrets/metrics_oauth_client_secret
+  test ! -e /run/secrets/grafana_admin_password'
+compose_obs exec -T grafana sh -ec '
+  test -r /run/secrets/grafana_admin_password
+  test -s /run/secrets/grafana_admin_password
+  test ! -e /run/secrets/metrics_oauth_client_secret'
+compose_obs port prometheus 9090
+compose_obs port grafana 3000
+docker network ls --filter "label=com.docker.compose.project=$projeto_obs"
+docker volume ls --filter "label=com.docker.compose.project=$projeto_obs"
+compose_obs up -d --wait --force-recreate prometheus grafana
+```
+
+Após conferir a persistência, encerre o projeto descartável com `compose_obs down -v`, na mesma sessão e na mesma cópia. As portas devem ficar livres e as listagens de rede e volumes filtradas pelo projeto devem ficar vazias.
 
 ## 4. Cadastro de clientes ([cadastro - 01])
 

@@ -21,6 +21,8 @@ Este repositório é responsável pelo backend do **FlowSLA**, incluindo as docu
 | [Spring RestClient](https://docs.spring.io/spring-framework/reference/integration/rest-clients.html) | 7.x (`spring-boot-starter-restclient`; chamadas HTTP externas) |
 | [Spring Boot Actuator](https://docs.spring.io/spring-boot/reference/actuator/index.html)                   | 4.1.1                               |
 | [Micrometer Prometheus](https://docs.micrometer.io/micrometer/reference/implementations/prometheus.html)   | 1.17.1                              |
+| [Prometheus](https://github.com/prometheus/prometheus/releases/tag/v3.16.0)                                 | 3.16.0 (imagem Docker)              |
+| [Grafana](https://github.com/grafana/grafana/releases/tag/v13.3.2)                                          | 13.3.2 (imagem Docker)              |
 | [Flyway](https://documentation.red-gate.com/flyway)                                                        | 12.4.0 (+ `flyway-database-postgresql`) |
 | [Spring Modulith](https://spring.io/projects/spring-modulith)                                              | 2.1.1 (só verificação de módulos, nos testes) |
 | [Resilience4j](https://resilience4j.readme.io/) | 2.4.0 (`resilience4j-spring-boot4`; retry da Admin API do Keycloak, ver autenticacao-03, e do processamento das evidências, ver evidencia-03) |
@@ -65,7 +67,7 @@ As rotas protegidas exigem `Authorization: Bearer <token do Keycloak>`. Saúde e
 
 `/actuator/prometheus` usa uma cadeia stateless exclusiva, prioritária: exige `metrics.read` em `resource_access.flowsla-metrics.roles`, sem consultar `usuario`. A conta `flowsla-metrics` só usa `client_credentials`, recebe a audiência `app-principal` e não recebe papéis de negócio nem de administração. Sem token ou com JWT inválido/expirado: 401; JWT válido sem a permissão desse client: 403; autorizado: 200. Os erros mantêm o formato Problem Details. Token de gestor não permite scrape. A regra fica na cadeia por ser um endpoint do Actuator, sem controller próprio nem `@PreAuthorize`. O scrape interno usa `backend-app:8080/actuator/prometheus`; a publicação da API no host não muda.
 
-O segredo vem de `KEYCLOAK_METRICS_CLIENT_SECRET` em `.envs/.env.<ambiente>` (ver os três `.example`). Na primeira importação, o Keycloak resolve o placeholder no JSON. Em realms existentes, siga a [atualização sem apagar volumes](docs/tasks/observabilidade/observabilidade-01-autenticar-scrape-backend.md#atenção-ao-atualizar-um-ambiente-existente). Obtenção do token e verificações manuais estão na [seção 3A do roteiro](docs/plano-testes-manuais.md#3a-scrape-autenticado-do-backend-observabilidade---01). A instalação do Prometheus e a montagem do segredo como secret de Compose ficam para as próximas tarefas.
+O segredo vem de `KEYCLOAK_METRICS_CLIENT_SECRET` em `.envs/.env.<ambiente>` (ver os três `.example`). Na primeira importação, o Keycloak resolve o placeholder no JSON. Em realms existentes, siga a [atualização sem apagar volumes](docs/tasks/observabilidade/observabilidade-01-autenticar-scrape-backend.md#atenção-ao-atualizar-um-ambiente-existente). Obtenção do token e verificações manuais estão na [seção 3A do roteiro](docs/plano-testes-manuais.md#3a-scrape-autenticado-do-backend-observabilidade---01). O Compose já entrega o segredo ao Prometheus, e a coleta autenticada pelo serviço entra na tarefa 3.
 
 Restringir um endpoint por papel tem **dois passos**, os dois obrigatórios:
 
@@ -263,7 +265,7 @@ cp .envs/.env.dev.example .envs/.env.dev
 make run-dev
 ```
 
-O ambiente sobe o backend e as dependências dele. O backend só inicia depois que todas estão saudáveis:
+O ambiente sobe o backend, suas dependências e os serviços de observabilidade. O backend espera pelas dependências declaradas no Compose.
 
 | Serviço    | Acesso em dev                                  | Observação                                                                 |
 | ---------- | ---------------------------------------------- | -------------------------------------------------------------------------- |
@@ -273,9 +275,11 @@ O ambiente sobe o backend e as dependências dele. O backend só inicia depois q
 | MinIO      | http://localhost:9001 (console)                | a porta S3 (9000) não é publicada no host                                  |
 | Keycloak   | http://localhost:8081                          | console admin em `KEYCLOAK_ADMIN_USER`/`KEYCLOAK_ADMIN_PASSWORD`; realm `flowsla` importado de `infra/keycloak/realm-flowsla.json` |
 | Mailpit    | http://localhost:8025                          | caixa de e-mails de teste                                                  |
+| Prometheus | http://127.0.0.1:19090                         | coleta as próprias métricas a cada 15 s                                   |
+| Grafana    | http://127.0.0.1:13000                         | datasource `prometheus` provisionado via rede interna                     |
 | ms-notificacoes | http://localhost:8082                     | só com `make run-dev` (profile `ms`), construído de `../ms-notifications`; o `ci-run-dev` não o sobe |
 
-Em test e prod nenhuma porta de infraestrutura é publicada. Os serviços ficam na rede `flowsla-<ENVIRONMENT>`, que o ms-notificacoes usa como rede externa para acessar o PostgreSQL e o RabbitMQ compartilhados.
+Em test e prod, as duas portas de observabilidade são publicadas em `127.0.0.1`. Os serviços ficam na rede `flowsla-<ENVIRONMENT>`, que o ms-notificacoes usa como rede externa para acessar o PostgreSQL e o RabbitMQ compartilhados.
 
 #### Credenciais de desenvolvimento (realm `flowsla`)
 
@@ -323,6 +327,26 @@ cp .envs/.env.prod.example .envs/.env.prod
 ```bash
 make run-prod
 ```
+
+### Observabilidade no Compose
+
+Prometheus e Grafana usam `unless-stopped` e têm volumes de dados próprios nos três ambientes. O Compose nomeia os volumes como `<projeto>_prometheus-<ambiente>` e `<projeto>_grafana-<ambiente>`. Para rodar ambientes no mesmo host, escolha duas portas livres diferentes para cada um e use valores distintos de `ENVIRONMENT` e de projeto Compose em cópias isoladas.
+
+| Variável em `.envs/.env.<ambiente>` | Valor inicial ou uso |
+| --- | --- |
+| `PROMETHEUS_LOCAL_PORT` | `19090`, porta de `127.0.0.1` para `prometheus:9090` |
+| `GRAFANA_LOCAL_PORT` | `13000`, porta de `127.0.0.1` para `grafana:3000` |
+| `PROMETHEUS_RETENTION_TIME` | `15d`, retenção por tempo |
+| `PROMETHEUS_RETENTION_SIZE` | `5GB`, retenção por tamanho |
+| `GRAFANA_ADMIN_USER` | `admin` nos exemplos, nome obrigatório para a conta inicial |
+| `GRAFANA_ADMIN_PASSWORD` | Senha inicial obrigatória. Substitua o valor ilustrativo por uma senha própria. |
+| `KEYCLOAK_METRICS_CLIENT_SECRET` | Segredo obrigatório do client `flowsla-metrics`, reutilizado da tarefa 1. |
+
+Vale o primeiro limite de retenção atingido. Reserve espaço adicional para o WAL, os dados ativos e a compactação. O datasource `prometheus` usa `http://prometheus:9090` via proxy e tem edição desabilitada. Cadastro público e acesso anônimo do Grafana ficam desabilitados.
+
+O Compose usa o arquivo passado em `--env-file` como origem dos secrets. Entrega `KEYCLOAK_METRICS_CLIENT_SECRET` ao Prometheus em `/run/secrets/metrics_oauth_client_secret` e `GRAFANA_ADMIN_PASSWORD` ao Grafana em `/run/secrets/grafana_admin_password`, apontado por `GF_SECURITY_ADMIN_PASSWORD__FILE`. O Keycloak continua recebendo o segredo de métricas por variável para a importação do realm. Em ambientes existentes, adicione as variáveis ao arquivo local antes de subir o Compose atualizado.
+
+A conta e a senha iniciais do Grafana ficam persistidas no volume. Alterar `GRAFANA_ADMIN_PASSWORD` no `.env` e recriar o container mantém a senha da conta existente. Faça a troca pela administração do Grafana. A verificação dos dois serviços em uma cópia isolada está na [seção 3B do roteiro](docs/plano-testes-manuais.md#3b-prometheus-e-grafana-no-compose-observabilidade---02).
 
 ## Como executar os testes:
 
