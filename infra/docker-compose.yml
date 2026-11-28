@@ -2,6 +2,10 @@ services:
   backend-app:
     build:
       context: ..
+    # Os overlays carregam o arquivo de ambiente inteiro no backend.
+    environment:
+      KEYCLOAK_METRICS_CLIENT_SECRET: ""
+      GRAFANA_ADMIN_PASSWORD: ""
     ports:
       - "${LOCAL_PORT}:${DOCKER_PORT}"
     depends_on:
@@ -119,6 +123,62 @@ services:
       test: ["CMD", "/mailpit", "readyz"]
       interval: 5s
       retries: 5
+
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-15d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-5GB}
+    ports:
+      - "127.0.0.1:${PROMETHEUS_LOCAL_PORT:-19090}:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro,z
+    secrets:
+      - metrics_oauth_client_secret
+    healthcheck:
+      test: ["CMD", "/bin/promtool", "check", "ready", "--url=http://127.0.0.1:9090"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  grafana:
+    image: grafana/grafana:13.3.2
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -s "$$GF_SECURITY_ADMIN_PASSWORD__FILE" ]; then
+          echo 'Defina GRAFANA_ADMIN_PASSWORD no arquivo de ambiente' >&2
+          exit 1
+        fi
+        exec /run.sh
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?Defina GRAFANA_ADMIN_USER no arquivo de ambiente}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_LOCAL_PORT:-13000}:3000"
+    volumes:
+      - ./grafana/provisioning/datasources/prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro,z
+    secrets:
+      - grafana_admin_password
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/api/health"]
+      start_period: 360s
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+secrets:
+  metrics_oauth_client_secret:
+    environment: KEYCLOAK_METRICS_CLIENT_SECRET
+  grafana_admin_password:
+    environment: GRAFANA_ADMIN_PASSWORD
 
 networks:
   default:

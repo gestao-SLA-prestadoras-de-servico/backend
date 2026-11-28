@@ -36,6 +36,14 @@ services:
     ports:
       - "8025:8025" # interface web
 
+  prometheus:
+    volumes:
+      - prometheus-dev:/prometheus
+
+  grafana:
+    volumes:
+      - grafana-dev:/var/lib/grafana
+
   # Repositório irmão ../../ms-notifications. Host 8082, porque a 8081 do host é do Keycloak.
   ms-notificacoes:
     profiles: [ms] # fora do CI: o contexto de build é outro repositório
@@ -71,3 +79,5 @@ volumes:
   pgdata-dev:
   rabbitmq-dev:
   minio-dev:
+  prometheus-dev:
+  grafana-dev:

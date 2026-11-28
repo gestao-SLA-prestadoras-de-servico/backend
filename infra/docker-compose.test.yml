@@ -11,3 +11,15 @@ services:
 
   keycloak:
     command: start-dev --import-realm
+
+  prometheus:
+    volumes:
+      - prometheus-test:/prometheus
+
+  grafana:
+    volumes:
+      - grafana-test:/var/lib/grafana
+
+volumes:
+  prometheus-test:
+  grafana-test:

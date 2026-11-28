@@ -17,7 +17,17 @@ services:
     volumes:
       - minio-prod:/data
 
+  prometheus:
+    volumes:
+      - prometheus-prod:/prometheus
+
+  grafana:
+    volumes:
+      - grafana-prod:/var/lib/grafana
+
 volumes:
   pgdata-prod:
   rabbitmq-prod:
   minio-prod:
+  prometheus-prod:
+  grafana-prod:
